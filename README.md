@@ -210,6 +210,26 @@ The `Makefile` encapsulates system tasks, making it easy to run automated pipeli
 
 ---
 
+## 🛠️ Next Steps: Future Production Roadmap
+
+To transition this MVP control plane into a highly resilient, enterprise-grade production ecosystem, the following additions are slated for future development:
+
+### 1. Lightweight API Security (Authentication Layer)
+*   **Goal**: Secure node registration and metrics ingestion endpoints. Currently, any unauthorized client can inject fake telemetry data.
+*   **Plan**: Implement **JWT authentication** or a lightweight API-Key header validation (`X-API-Key`) checking tokens stored in environment variables, ensuring only authenticated GPU nodes can communicate with the Control Plane.
+
+### 2. Ecosytem Containerization (Docker & Compose)
+*   **Goal**: Standardize execution environments for cloud deployments (Kubernetes, AWS ECS) outside of Flox.
+*   **Plan**: 
+    - Author a multi-stage `Dockerfile` optimized for minimal size to build the FastAPI API and the Worker client.
+    - Write a `docker-compose.yml` file to spin up PostgreSQL, the Control Plane API, and three simulated GPU workers with a single command (`docker-compose up`).
+
+### 3. Distributed Event Pub/Sub Integration (Redis / Kafka)
+*   **Goal**: Scale the WebSockets transmission layer. Currently, events are broadcast in-memory. If the API scales horizontally behind a load balancer, workers connected to replica instance A won't receive telemetry published to instance B.
+*   **Plan**: Replace `LoggingEventPublisher` with a **Redis Pub/Sub** broker. API telemetry ingestions will publish to a Redis channel, and all horizontal WebSocket servers will subscribe to this channel, enabling scaling without memory sync issues.
+
+---
+
 ## 🧠 Lessons Learned & Engineering Challenges (Self-Retrospective)
 
 Every high-quality project is a result of navigating technical challenges. Here is a brief look at the architectural hurdles encountered during development and how they were solved:
