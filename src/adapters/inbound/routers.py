@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, status, WebSocket, WebSocketDisconnect
+import os
+from fastapi import APIRouter, Depends, status, WebSocket, WebSocketDisconnect, Header, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.domain.entities import TaskStatus
 from src.core.use_cases.node_provisioning import NodeProvisioningService
@@ -15,6 +16,20 @@ from src.adapters.inbound.api_schemas import (
 )
 
 router = APIRouter(prefix="/v1")
+
+# Global API Key configuration (configured via environment or pre-shared default token)
+API_KEY = os.getenv("API_KEY", "gpu_fleet_secure_token_2026")
+
+
+# --- Security Verification Dependencies ---
+
+async def verify_api_key(x_api_key: str = Header(..., description="Access API Key for control plane authentication")) -> None:
+    """Verifies that the incoming client HTTP request contains a valid X-API-Key header."""
+    if x_api_key != API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing X-API-Key header credential"
+        )
 
 
 # --- Dependency Injection Helpers (Request Scoped) ---
@@ -40,7 +55,13 @@ async def get_telemetry_service(session: AsyncSession = Depends(get_db_session))
 
 # --- Endpoints ---
 
-@router.post("/nodes", response_model=NodeResponse, status_code=status.HTTP_201_CREATED, summary="Register a worker node")
+@router.post(
+    "/nodes", 
+    response_model=NodeResponse, 
+    status_code=status.HTTP_201_CREATED, 
+    summary="Register a worker node",
+    dependencies=[Depends(verify_api_key)]
+)
 async def register_node(
     request: NodeRegisterRequest,
     service: NodeProvisioningService = Depends(get_node_service)
@@ -49,7 +70,12 @@ async def register_node(
     return node
 
 
-@router.post("/nodes/{node_id}/heartbeat", status_code=status.HTTP_204_NO_CONTENT, summary="Ingest heartbeat signal")
+@router.post(
+    "/nodes/{node_id}/heartbeat", 
+    status_code=status.HTTP_204_NO_CONTENT, 
+    summary="Ingest heartbeat signal",
+    dependencies=[Depends(verify_api_key)]
+)
 async def process_heartbeat(
     node_id: str,
     service: NodeProvisioningService = Depends(get_node_service)
@@ -86,7 +112,13 @@ async def transition_task(
     return task
 
 
-@router.post("/nodes/{node_id}/telemetry", response_model=TelemetryResponse, status_code=status.HTTP_201_CREATED, summary="Ingest node metrics telemetry")
+@router.post(
+    "/nodes/{node_id}/telemetry", 
+    response_model=TelemetryResponse, 
+    status_code=status.HTTP_201_CREATED, 
+    summary="Ingest node metrics telemetry",
+    dependencies=[Depends(verify_api_key)]
+)
 async def ingest_telemetry(
     node_id: str,
     request: TelemetryIngestRequest,
@@ -94,8 +126,8 @@ async def ingest_telemetry(
 ) -> TelemetryResponse:
     metric = await service.ingest_metrics(node_id, request.cpu_usage, request.gpu_usage, request.temperature)
     
-    # Broadcast ingested telemetry metric payload in real-time to all connected WebSockets
-    await manager.broadcast({
+    # Broadcast telemetry points (via Redis Pub/Sub if active, otherwise local in-memory fallback)
+    await manager.publish_telemetry({
         "node_id": metric.node_id,
         "timestamp": metric.timestamp.isoformat(),
         "cpu_usage": metric.cpu_usage,
@@ -107,12 +139,16 @@ async def ingest_telemetry(
 
 
 @router.websocket("/ws/telemetry")
-async def websocket_endpoint(websocket: WebSocket) -> None:
-    """Accepts real-time client WebSocket connections and streams live telemetry."""
+async def websocket_endpoint(websocket: WebSocket, api_key: str = Query(..., description="Access API Key token")) -> None:
+    """Accepts real-time client WebSocket connections and streams live telemetry, verifying API key token."""
+    if api_key != API_KEY:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+        
     await manager.connect(websocket)
     try:
         while True:
-            # Maintain connection open by listening for client messages (heartbeats/commands)
+            # Maintain connection open by listening for client keepalives/control messages
             await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket)

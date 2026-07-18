@@ -1,4 +1,8 @@
+import asyncio
+from contextlib import asynccontextmanager
+import json
 import os
+import redis.asyncio as aioredis
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, FileResponse
 from src.core.domain.exceptions import (
@@ -6,12 +10,52 @@ from src.core.domain.exceptions import (
     TaskNotFoundError, NodeOfflineException, InvalidTaskStateException
 )
 from src.adapters.inbound.routers import router
+from src.adapters.inbound.websocket_manager import manager
 
-# Initialize FastAPI application
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Manages application startup and shutdown events, subscribing to Redis Pub/Sub if configured."""
+    redis_url = os.getenv("REDIS_URL")
+    listener_task = None
+    
+    if redis_url:
+        async def listen_redis():
+            client = aioredis.from_url(redis_url)
+            pubsub = client.pubsub()
+            await pubsub.subscribe("telemetry_channel")
+            try:
+                async for message in pubsub.listen():
+                    if message and message["type"] == "message":
+                        data = json.loads(message["data"])
+                        await manager.broadcast(data)
+            except asyncio.CancelledError:
+                pass
+            except Exception as e:
+                import logging
+                logging.getLogger("lifespan").error(f"Redis Pub/Sub background listener encountered error: {e}")
+            finally:
+                await pubsub.close()
+                await client.aclose()
+
+        listener_task = asyncio.create_task(listen_redis())
+
+    yield
+
+    if listener_task:
+        listener_task.cancel()
+        try:
+            await listener_task
+        except asyncio.CancelledError:
+            pass
+
+
+# Initialize FastAPI application with lifecycle lifespan handlers
 app = FastAPI(
     title="GPU Fleet Commander API",
     description="Control Plane and Telemetry Ingestion Hub for distributed worker nodes.",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 

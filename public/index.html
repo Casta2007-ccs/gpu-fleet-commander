@@ -265,7 +265,10 @@
 
         // Initialize WebSocket Connection
         function connectWebSocket() {
-            const ws = new WebSocket("ws://" + window.location.host + "/v1/ws/telemetry");
+            const urlParams = new URLSearchParams(window.location.search);
+            const apiKey = urlParams.get('api_key') || 'gpu_fleet_secure_token_2026';
+            const wsScheme = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+            const ws = new WebSocket(wsScheme + window.location.host + "/v1/ws/telemetry?api_key=" + encodeURIComponent(apiKey));
 
             ws.onopen = () => {
                 statusDot.className = "w-2.5 h-2.5 rounded-full bg-nvgreen animate-pulse";

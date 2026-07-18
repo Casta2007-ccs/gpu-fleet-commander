@@ -113,11 +113,15 @@ async def main() -> None:
     logger.info("Starting GPU Fleet Commander Worker Simulator...")
     logger.info(f"Target API Server: {API_URL}")
     
+    # Load pre-shared API Key credentials
+    api_key = os.getenv("API_KEY", "gpu_fleet_secure_token_2026")
+    
     # Setup HTTP client limits and timeouts suited for keeping connections alive
     limits = httpx.Limits(max_keepalive_connections=5, max_connections=10)
     timeout = httpx.Timeout(5.0, connect=10.0)
+    headers = {"X-API-Key": api_key}
     
-    async with httpx.AsyncClient(limits=limits, timeout=timeout) as client:
+    async with httpx.AsyncClient(limits=limits, timeout=timeout, headers=headers) as client:
         # Step 1: Register node
         node_id = await register_node(client, hostname, hardware_specs)
         
