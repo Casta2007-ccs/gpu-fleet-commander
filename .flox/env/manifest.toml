@@ -5,12 +5,15 @@ python.pkg-group = "python-stack"
 uv.pkg-path = "uv"
 uv.pkg-group = "python-stack"
 
+poetry.pkg-path = "poetry"
+poetry.pkg-group = "python-stack"
+
 postgresql.pkg-path = "postgresql_16"
 redis.pkg-path = "redis"
 
 [vars]
 UV_CACHE_DIR = "$FLOX_ENV_CACHE/uv-cache"
-DATABASE_URL = "postgresql://localhost:5432/gpu_fleet"
+DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/gpu_fleet"
 REDIS_URL = "redis://localhost:6379"
 
 [hook]
@@ -24,7 +27,7 @@ on-activate = """
     source "$venv/bin/activate"
   fi
 
-  # Auto-install pip requirements if modified
+  # Auto-install dependencies via uv if requirements.txt exists
   if [ -f requirements.txt ] && [ ! -f "$FLOX_ENV_CACHE/.deps_installed" ]; then
     uv pip install -r requirements.txt --quiet
     touch "$FLOX_ENV_CACHE/.deps_installed"
@@ -36,6 +39,12 @@ common = """
   # Fast development aliases for the team
   run-server() { python -m cmd.api.main; }
   run-tests() { pytest tests/; }
+  
+  # PostgreSQL management helpers
+  db-init() { initdb -D "$FLOX_ENV_CACHE/pgdata" --no-locale --encoding=UTF8; }
+  db-start() { pg_ctl -D "$FLOX_ENV_CACHE/pgdata" -l "$FLOX_ENV_CACHE/postgres.log" start; }
+  db-stop() { pg_ctl -D "$FLOX_ENV_CACHE/pgdata" stop; }
+  db-create() { createdb -h localhost -p 5432 -U postgres gpu_fleet; }
 """
 
 [services]
