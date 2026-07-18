@@ -14,6 +14,7 @@ sqlalchemy = {extras = ["asyncio"], version = "^2.0.31"}
 asyncpg = "^0.29.0"
 greenlet = "^3.0.3"
 uvicorn = "^0.30.1"
+httpx = "^0.27.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.2"

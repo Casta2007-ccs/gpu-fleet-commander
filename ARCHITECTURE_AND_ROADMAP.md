@@ -93,5 +93,5 @@ The repository is structured to enforce the dependency rule: dependencies point 
 *Goal: Visualize the system at scale.*
 - [ ] Create a lightweight cross-platform dashboard (e.g., React/TypeScript or a native desktop app).
 - [ ] Implement real-time telemetry streaming (Server-Sent Events or WebSockets) via the API adapter.
-- [ ] Add a simulated CLI worker (`cmd/worker`) that registers itself, receives tasks, and reports fake hardware metrics to showcase the end-to-end flow.
+- [x] Add a simulated CLI worker (`cmd/worker`) that registers itself, receives tasks, and reports fake hardware metrics to showcase the end-to-end flow.
 - [ ] Finalize documentation, architecture diagrams, and deployment instructions.
