@@ -3,20 +3,88 @@
 [![CI Pipeline](https://github.com/Casta2007-ccs/gpu-fleet-commander/actions/workflows/ci.yml/badge.svg)](https://github.com/Casta2007-ccs/gpu-fleet-commander/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python: 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
-[![Code Style: Ruff](https://img.shields.io/badge/code%20style-Ruff-000000.svg)](https://github.com/astral-sh/ruff)
-[![Reproducible Env: Flox](https://img.shields.io/badge/environment-Flox-orange.svg)](https://flox.dev/)
+[![FastAPI: 0.111](https://img.shields.io/badge/FastAPI-0.111-009688.svg)](https://fastapi.tiangolo.com/)
+[![SQLAlchemy: 2.0](https://img.shields.io/badge/SQLAlchemy-2.0-red.svg)](https://www.sqlalchemy.org/)
+[![Environment: Flox](https://img.shields.io/badge/environment-Flox-orange.svg)](https://flox.dev/)
 [![Architecture: Hexagonal](https://img.shields.io/badge/architecture-Hexagonal-green.svg)](https://en.wikipedia.org/wiki/Hexagonal_architecture_(software))
-[![Tests: 13 passed](https://img.shields.io/badge/tests-13%20passed-brightgreen.svg)]()
+[![Code Style: Ruff](https://img.shields.io/badge/code%20style-Ruff-000000.svg)](https://github.com/astral-sh/ruff)
 
-**GPU Fleet Commander** is an enterprise-grade, high-performance Control Plane designed for orchestrating distributed computing resources (such as server clusters or NVIDIA Jetson edge systems). It handles real-time node registration, heartbeat telemetry monitoring, and idempotent task dispatching, broadcasting live metrics via WebSockets to a dedicated monitoring dashboard.
+**GPU Fleet Commander** is a production-grade, high-performance Control Plane designed for orchestrating decentralized GPU computing infrastructure (such as server clusters or NVIDIA Jetson edge systems). It manages real-time worker node registrations, keepalive heartbeats, and idempotent computational task dispatching, streaming instant hardware metrics via WebSockets to a centralized control panel.
 
-Built with a **pure domain model** following strict **Hexagonal Architecture** (Ports and Adapters) principles, the system isolates core business logic from databases and web frameworks, facilitating elite testability and scalability.
+In distributed computing, managing physical GPU hardware at scale requires minimal network overhead and bulletproof state isolation. This project solves that by decoupling the core domain orchestration from database operations and network frameworks, serving as a robust blueprint for enterprise-level resource dispatchers.
+
+---
+
+## 📸 Visual Previews
+
+### Real-Time Fleet Telemetry Dashboard
+![Dashboard Preview](docs/dashboard.png)
+*NVIDIA-themed control panel with live-drawn CPU, GPU, and core temperature charts powered by Chart.js and WebSockets.*
+
+### Concurrent GPU Node Simulation
+![Simulator Logs](docs/simulator_logs.png)
+*Simulated hardware worker nodes reporting metrics and keepalives with automatic exponential backoff reconnection recovery.*
+
+---
+
+## 💡 Why This Project Stands Out (Technical Edge)
+
+This control plane is built to showcase advanced backend engineering standards:
+
+*   **Pure Hexagonal Architecture (Ports and Adapters)**: Business rules are isolated from frameworks. The core domain does not import database or HTTP libraries. You can swap PostgreSQL for InfluxDB or FastAPI for gRPC by rewriting outbound/inbound adapters, **without changing a single line of business logic**.
+*   **100% Asynchronous I/O Pipeline**: Built end-to-end on non-blocking async execution (`async/await`) using FastAPI and SQLAlchemy 2.0's async engine over the `asyncpg` PostgreSQL driver. This prevents thread starvation during high-frequency telemetry ingestion.
+*   **Immutable Domain State Transitions**: To guarantee safety against race conditions in concurrent execution loops, domain models (`Node`, `Task`) are declared as `@dataclass(frozen=True)`. Mutations are performed safely via functional copying (`replace()`).
+*   **Declarative Development Environment (Flox / Nix)**: Eliminates "works on my machine" issues. All system-level dependencies (Python 3.12, PostgreSQL 16, Redis, `uv`) are declared in `.flox/env/manifest.toml`. The entire workspace initializes inside an isolated sandbox with a single command.
+*   **Built-in Task Idempotency**: Concurrency-safe execution logic prevents duplicate task scheduling. If a client submits a duplicated run request, the engine returns the existing record based on its unique `idempotency_key` instead of spawning duplicate tasks.
+
+---
+
+## 🎮 End-to-End Simulation Quickstart
+
+Observe the entire system working with live telemetry streaming in less than 60 seconds:
+
+### 1. Install Flox (Package & Environment Manager)
+Ensure you have Flox installed. Visit the [Flox Installation Guide](https://flox.dev/docs/install-flox/install/) for instructions.
+
+### 2. Clone the Repository and Start the Environment
+```bash
+git clone https://github.com/Casta2007-ccs/gpu-fleet-commander.git
+cd gpu-fleet-commander
+flox activate --start-services
+```
+*This downloads Python 3.12, Postgres 16, sets up your virtual environment via `uv`, and boots background databases.*
+
+### 3. Initialize and Create the Database (Inside Flox env)
+Run these commands to prepare your local PostgreSQL server:
+```bash
+make init      # Initialize local cluster database files
+make start     # Start PostgreSQL service in background
+make create-db # Create the 'gpu_fleet' database schema
+```
+
+### 4. Run the Control Plane API
+Launch the FastAPI development server:
+```bash
+make run
+```
+*The API is now running on `http://localhost:8000/`. You can open this address in your browser to view the **NVIDIA-themed Fleet Dashboard**.*
+
+### 5. Start Simulated GPU Worker Nodes
+Open one or more new terminal sessions, activate the flox environment, and execute the worker simulator:
+```bash
+# Registers a simulated worker node (e.g. RTX 4090) and streams metrics every 3s
+python cmd/worker/main.py
+```
+*(Tip: Run multiple instances in separate terminal windows to simulate a large distributed cluster).*
+
+### 6. Monitor in Real-Time
+Open **`http://localhost:8000/`** to watch the worker nodes connect, appear in the active node selector, and stream CPU, GPU, and Temperature charts via WebSockets.
 
 ---
 
 ## 🏗️ Architectural Blueprint
 
-The codebase enforces a unidirectional dependency flow pointing **inward** toward the pure domain model. Infrastructure components (Web APIs, Databases, WebSockets, Message Brokers) are plugged in via interfaces (Ports).
+The codebase enforces a strict unidirectional dependency flow pointing **inward** toward the core domain model:
 
 ```mermaid
 graph TD
@@ -69,83 +137,52 @@ graph TD
     style Outbound Adapters fill:#37474f,stroke:#263238,stroke-width:2px,color:#fff
 ```
 
-For a comprehensive explanation of our modular structure, see our [Architecture & Development Guide](file:///C:/Users/Usuario/Documents/antigravity/keen-noether/docs/DEVELOPMENT_AND_ARCHITECTURE.md).
-
----
-
-## ✨ Key Technical Highlights
-
-### 1. Pure Domain Isolation
-No ORM annotations (`SQLAlchemy`) or web decorators (`FastAPI`) touch the domain models. The domain is pure Python 3.12. This ensures that the core business logic remains unaffected by framework upgrades or infrastructure changes.
-
-### 2. Immutable State Transitions
-Entities are modeled using `@dataclass(frozen=True)`. State transitions return new mutated instances, eliminating side effects and enhancing safety against race conditions in concurrent execution environments:
-```python
-# State transition returning a new copy of the Node
-def update_heartbeat(self, timestamp: datetime) -> "Node":
-    return replace(self, last_heartbeat=timestamp, status=NodeStatus.ONLINE)
-```
-
-### 3. Asynchronous Execution Pipeline
-All database operations (SQLAlchemy 2.0 + `asyncpg` + PostgreSQL) and API request handlers (FastAPI) are asynchronously configured, ensuring sub-second response times under concurrent telemetry loads.
-
-### 4. WebSocket Live Telemetry Broadcasting
-Incoming metric payloads from worker nodes are automatically broadcast to all connected WebSocket clients (`/v1/ws/telemetry`) in real-time, displaying live telemetry without database polling bottlenecks.
-
-### 5. Task Idempotency
-Built-in protection against network retries using client-provided idempotency keys. If a task creation request is duplicated, the system returns the existing task without altering database state.
-
----
-
-## 📂 Project Structure
-
+### Repository Structure
 ```text
 .
 ├── .github/
 │   ├── workflows/
-│   │   └── ci.yml              # GitHub Actions CI Workflow (Postgres 16 + Test Suite)
-│   └── PULL_REQUEST_TEMPLATE.md # Developer PR Template and Quality Gates
+│   │   └── ci.yml              # GitHub Actions CI pipeline
+│   └── PULL_REQUEST_TEMPLATE.md # Pull Request template and review checklist
 ├── .flox/                      # Declarative Nix-based virtual environments
-│   └── env/
-│       └── manifest.toml       # Environment packages (Postgres, Redis, Python, uv)
 ├── cmd/
 │   ├── api/
-│   │   └── main.py             # Entrypoint & FastAPI setup (global exception handling)
+│   │   └── main.py             # API entrypoint & FastAPI setup
 │   └── worker/
-│       └── main.py             # GPU Worker Client Simulator (HTTPX Async Client)
+│       └── main.py             # Independent GPU node simulator client (HTTPX)
 ├── public/
-│   └── index.html              # NVIDIA-themed Real-time Web Dashboard (Tailwind + Chart.js)
+│   └── index.html              # Telemetry dashboard webpage (Tailwind + Chart.js)
 ├── src/
 │   ├── core/                   # 🛑 Pure Domain - NO FRAMEWORKS
-│   │   ├── domain/             # Entities, Value Objects, Domain Exceptions
-│   │   ├── ports/              # Inbound & Outbound Interfaces (contracts)
-│   │   └── use_cases/          # Business logic services (Use Cases)
+│   │   ├── domain/             # Domain entities & Custom Exceptions
+│   │   ├── ports/              # Driving & Driven interfaces (Abstract Base Classes)
+│   │   └── use_cases/          # Business logic implementation services
 │   ├── adapters/               # 🔌 Infrastructure & Adapters (Web, DB, WebSockets)
-│   │   ├── inbound/            # FastAPI routers, WebSocket manager, Pydantic schemas
-│   │   └── outbound/           # SQLAlchemy 2.0 ORM models & Async repositories
+│   │   ├── inbound/            # API schemas, WebSocket manager, API routers
+│   │   └── outbound/           # Async Postgres repositories & ORM models
 │   └── config/                 # Dependency injection configurations
 ├── tests/
-│   ├── unit/                   # High-speed unit tests (uses mock Fakes)
-│   └── integration/            # Test adapters against real Postgres inside Flox
+│   └── unit/                   # High-speed unit tests (uses in-memory Fakes)
 ├── docs/
 │   ├── adr/                    # Architectural Decision Records (ADRs 0001-0003)
-│   └── DEVELOPMENT_AND_ARCHITECTURE.md # Detailed development guide
-├── Makefile                    # Developer Task Runner (build, test, format, database controls)
-├── pyproject.toml              # Ruff and Pytest configuration specifications
-├── requirements.txt            # Poetry exported package requirements
-└── LICENSE                     # MIT Open Source License
+│   └── DEVELOPMENT_AND_ARCHITECTURE.md # Exhaustive design explanation
+├── Makefile                    # Unified developer target runner
+├── pyproject.toml              # Ruff and Pytest settings
+└── requirements.txt            # Poetry dependencies export
 ```
 
 ---
 
 ## 🛠️ API & WebSockets Reference
 
+All REST endpoints map to strict Pydantic DTO schemas. Domain errors are automatically translated to HTTP codes.
+
 | Method | Endpoint | Description | Payload | Success | Errors |
 |:---|:---|:---|:---|:---|:---|
 | **GET** | `/` | Serve HTML Web Dashboard | None | `200 OK` | None |
 | **GET** | `/health` | API Health check | None | `200 OK` | None |
 | **POST** | `/v1/nodes` | Register a new worker node | `{"hostname": "str", "hardware_specs": {}}` | `201 Created` | `409 Conflict` |
-| **POST** | `/v1/nodes/{id}/heartbeat` | Ingest node heartbeat (keepalive) | None | `204 No Content` | `404 Not Found` |
+| **POST** | `/v1/nodes/{id}/heartbeat` | Ingest node heartbeat keepalive | None | `204 No Content` | `404 Not Found` |
 | **POST** | `/v1/nodes/{id}/telemetry` | Ingest node metric payload | `{"cpu_usage": float, "gpu_usage": float, "temperature": float}` | `201 Created` | `404 Not Found` |
 | **POST** | `/v1/tasks` | Create a task (Idempotent) | `{"idempotency_key": "str", "payload": {}}` | `201 Created` | `400 Bad Request` |
 | **POST** | `/v1/tasks/{id}/dispatch` | Assign task to an online node | Query: `?node_id=str` | `200 OK` | `404/409 Conflict` |
@@ -154,71 +191,22 @@ Built-in protection against network retries using client-provided idempotency ke
 
 ---
 
-## 🎮 End-to-End Simulation Quickstart
-
-Experience the entire system working in real-time under 60 seconds.
-
-### 1. Initialize and Start Databases (via Flox/Nix)
-If you are using Flox, start the PostgreSQL services:
-```bash
-flox activate --start-services
-make init      # Initialize local cluster files
-make start     # Start PostgreSQL service in background
-make create-db # Create 'gpu_fleet' database
-```
-
-### 2. Run the Control Plane API
-Launch the FastAPI development server:
-```bash
-make run
-```
-*The API is now running on `http://localhost:8000/`. You can open this URL in your web browser to view the **NVIDIA-themed Live Dashboard**.*
-
-### 3. Spin Up Simulated GPU Worker Nodes
-Open one or more new terminal sessions and run the worker simulator client:
-```bash
-# Registers a simulated worker node (e.g. RTX 4090) and streams metrics every 3s
-python cmd/worker/main.py
-```
-*(Optionally run multiple instances in different terminal tabs to simulate a fleet of concurrent GPUs).*
-
-### 4. Watch Live Telemetry
-Open **`http://localhost:8000/`** in your browser. You will see:
-- Node names dynamically added to the selector.
-- Live-drawn charts for CPU, GPU, and Temperature updated every 3 seconds via WebSockets.
-- A rolling console displaying raw telemetry JSON payloads as they land.
-
----
-
 ## ⚡ Developer Task Runner (Makefile)
 
-A `Makefile` is included to unify workflow commands across the development team:
+The `Makefile` encapsulates system tasks, making it easy to run automated pipelines:
 
-| Target | Description |
-|:---|:---|
-| `make install` | Install Python dependencies via `uv` |
-| `make init` | Initialize PostgreSQL database files in space-user |
-| `make start` | Start PostgreSQL local background services |
-| `make stop` | Stop background PostgreSQL services |
-| `make create-db` | Create the development SQL database |
-| `make run` | Run FastAPI server on `localhost:8000` with reload |
-| `make test` | Execute the unit test suite |
-| `make format` | Automatically style and format code with Ruff |
-| `make lint` | Run Ruff linter and MyPy type check validation |
-| `make clean` | Remove temporary cache and pycache folders |
-
----
-
-## 💡 Technical Decisions & Architectural Context
-
-### Why Hexagonal Architecture?
-Infrastructure changes frequently. By structuring the control plane with clear Inbound and Outbound ports, we can swap PostgreSQL for a specialized time-series database (e.g., InfluxDB or TimescaleDB) to handle millions of telemetry records, **without modifying a single line of business logic** in the core domain.
-
-### Architectural Decision Records (ADRs)
-We record all major design choices as Architectural Decision Records to maintain technical transparency:
-1. **[ADR 0001: Record Architecture Decisions](file:///C:/Users/Usuario/Documents/antigravity/keen-noether/docs/adr/0001-record-architecture-decisions.md)**
-2. **[ADR 0002: Use Hexagonal Architecture](file:///C:/Users/Usuario/Documents/antigravity/keen-noether/docs/adr/0002-use-hexagonal-architecture.md)**
-3. **[ADR 0003: Use Asynchronous I/O](file:///C:/Users/Usuario/Documents/antigravity/keen-noether/docs/adr/0003-use-asynchronous-io.md)**
+| Target | Command | Description |
+|:---|:---|:---|
+| `make install` | `uv pip install -r requirements.txt` | Install Python dependencies |
+| `make init` | `initdb -D .flox/cache/pgdata` | Initialize PostgreSQL storage cluster |
+| `make start` | `pg_ctl -D .flox/cache/pgdata start` | Start PostgreSQL in background |
+| `make stop` | `pg_ctl -D .flox/cache/pgdata stop` | Stop background PostgreSQL services |
+| `make create-db`| `createdb ... gpu_fleet` | Create development database schemas |
+| `make run` | `uvicorn cmd.api.main:app ...` | Start FastAPI server on `localhost:8000` |
+| `make test` | `python -m pytest tests/unit/` | Execute high-speed unit tests |
+| `make format` | `ruff format src/ cmd/ tests/` | Auto-format codebase using Ruff |
+| `make lint` | `ruff check ... && mypy ...` | Execute linters & mypy static typings |
+| `make clean` | `rm -rf .pytest_cache ...` | Clean cache and compiled Python files |
 
 ---
 
