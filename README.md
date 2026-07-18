@@ -178,7 +178,7 @@ Prerequisites: A virtual environment with dependencies installed (handled automa
 
 ---
 
-## 💡 Interview Context & Technical Decisions (NVIDIA Portfolio)
+## 💡 Technical Decisions & Architectural Context
 
 ### Why Hexagonal Architecture?
 In enterprise systems, infrastructure changes frequently. By structuring this control plane with clear **Inbound** and **Outbound** ports:
