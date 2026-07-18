@@ -85,9 +85,9 @@ The repository is structured to enforce the dependency rule: dependencies point 
 *Goal: Plug the adapters into the core.*
 - [ ] Spin up PostgreSQL locally via Flox services.
 - [x] Implement the SQL Outbound Adapters (Repositories) using the chosen database driver/ORM.
-- [ ] Implement the REST API Inbound Adapters implementing the OpenAPI contract.
+- [x] Implement the REST API Inbound Adapters implementing the OpenAPI contract.
 - [ ] Write integration tests for database adapters using Testcontainers or Flox temporary databases.
-- [ ] Wire up Dependency Injection in the entry point.
+- [x] Wire up Dependency Injection in the entry point.
 
 ### Phase 3: Cross-Platform UI & Telemetry Dashboard (Weeks 5-6)
 *Goal: Visualize the system at scale.*
