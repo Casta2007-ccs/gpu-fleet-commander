@@ -78,7 +78,7 @@ The repository is structured to enforce the dependency rule: dependencies point 
 *Goal: Establish the reproducible foundation and pure business logic.*
 - [x] Define the **Flox environment** (`manifest.toml`) pinning the language runtime and build tools.
 - [x] Implement Domain Entities and Use Cases in the `src/core/` directory.
-- [ ] Achieve 100% unit test coverage in the core using in-memory mock repositories.
+- [x] Achieve 100% unit test coverage in the core using in-memory mock repositories.
 - [ ] Design the `openapi.yaml` contract for the REST API.
 
 ### Phase 2: Infrastructure & Database Integration (Weeks 3-4)
