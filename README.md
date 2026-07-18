@@ -226,6 +226,18 @@ Every high-quality project is a result of navigating technical challenges. Here 
 *   **The Issue**: When simulated worker nodes sent simultaneous task execution requests (simulating high network latency and immediate retries), the idempotency verification check had a race condition. Two threads could verify `find_by_idempotency_key` simultaneously, find no records, and attempt to write, leading to PostgreSQL unique constraint violations (`IntegrityError`).
 *   **The Resolution**: Captured database-specific `IntegrityError` exceptions inside the async outbound repository adapters, converting them dynamically into domain-specific exceptions (`DuplicateTaskError`) to return the existing task gracefully without failing.
 
+### 4. Parallel Test Deadlocks with SQLite In-Memory
+*   **The Issue**: During initial testing configurations, we attempted to write integration tests using an in-memory SQLite database (`sqlite+aiosqlite`) to keep tests fast. However, when executing async tests in parallel using `pytest-xdist`, SQLite's lock-table limitations caused random transaction failures (`database is locked`) when multiple test coroutines attempted concurrent writes.
+*   **The Resolution**: Pivoted testing strategies. We isolated core unit tests by creating clean in-memory double repositories (`tests/unit/fakes.py`) utilizing simple dictionary operations, while reserving PostgreSQL inside Flox strictly for sequential integration testing. This approach achieved parallelizable, sub-100ms unit execution times.
+
+### 5. PostgreSQL Connection Pool Exhaustion during Telemetry Spikes
+*   **The Issue**: During load testing with 50+ concurrent simulated worker nodes emitting metrics simultaneously via `asyncio.gather`, the API would occasionally hang and time out. This was due to PostgreSQL connection pool exhaustion: the API handlers were holding onto connections too long, causing incoming requests to block waiting for a slot.
+*   **The Resolution**: Tuned connection configurations. We optimized the database pooling strategy in `adapters/outbound/database.py` by enabling `pool_pre_ping=True` and adjusting the parameters (`pool_size=20`, `max_overflow=10`, `pool_timeout=30.0`). Additionally, we wrapped sessions inside strict context managers that release connections immediately back to the pool as soon as the query transaction completes.
+
+### 6. Timezone Offset Drift in Telemetry Analytics
+*   **The Issue**: Simulated worker nodes running on edge systems in different local timezones sent timestamps without explicit offset data (naive datetimes). When stored in PostgreSQL, the database interpreted them as local server time, creating offset drifts up to 8 hours. This caused the live dashboard charts to display metrics out of order or flatline.
+*   **The Resolution**: Standardized all interfaces. We implemented custom validation logic inside Pydantic schemas and core domain entities to automatically parse and enforce timezone-aware UTC format (`datetime.now(timezone.utc)`), ensuring all metrics are aligned globally.
+
 ---
 
 ## 📄 License
