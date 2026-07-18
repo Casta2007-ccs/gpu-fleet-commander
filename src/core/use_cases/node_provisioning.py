@@ -11,8 +11,8 @@ class NodeProvisioningService(INodeProvisioningUseCase):
         self._node_repository: INodeRepository = node_repository
         self._event_publisher: IEventPublisher = event_publisher
 
-    def register_node(self, hostname: str, hardware_specs: Dict[str, Any]) -> Node:
-        existing_node = self._node_repository.find_by_hostname(hostname)
+    async def register_node(self, hostname: str, hardware_specs: Dict[str, Any]) -> Node:
+        existing_node = await self._node_repository.find_by_hostname(hostname)
         if existing_node is not None:
             raise DuplicateNodeError(hostname)
 
@@ -23,14 +23,14 @@ class NodeProvisioningService(INodeProvisioningUseCase):
             hardware_specs=hardware_specs,
             last_heartbeat=datetime.now(timezone.utc)
         )
-        self._node_repository.save(new_node)
-        self._event_publisher.publish_node_registered(new_node)
+        await self._node_repository.save(new_node)
+        await self._event_publisher.publish_node_registered(new_node)
         return new_node
 
-    def process_heartbeat(self, node_id: str) -> None:
-        node = self._node_repository.find_by_id(node_id)
+    async def process_heartbeat(self, node_id: str) -> None:
+        node = await self._node_repository.find_by_id(node_id)
         if node is None:
             raise NodeNotFoundError(node_id)
 
         updated_node = node.update_heartbeat(datetime.now(timezone.utc))
-        self._node_repository.save(updated_node)
+        await self._node_repository.save(updated_node)

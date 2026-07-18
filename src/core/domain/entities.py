@@ -1,5 +1,5 @@
-from dataclasses import dataclass, replace
-from datetime import datetime
+from dataclasses import dataclass, field, replace
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, Optional
 from src.core.domain.exceptions import InvalidTaskStateException
@@ -53,9 +53,10 @@ class Task:
     id: str
     payload: Dict[str, Any]
     status: TaskStatus
+    idempotency_key: str
     retries: int = 0
     node_id: Optional[str] = None
-    created_at: datetime = datetime.now()
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     completed_at: Optional[datetime] = None
 
     def __post_init__(self) -> None:
@@ -65,6 +66,8 @@ class Task:
             raise TypeError("Payload must be a dictionary.")
         if not isinstance(self.status, TaskStatus):
             raise TypeError("status must be an instance of TaskStatus.")
+        if not isinstance(self.idempotency_key, str) or not self.idempotency_key.strip():
+            raise ValueError("Idempotency key must be a non-empty string.")
         if not isinstance(self.retries, int) or self.retries < 0:
             raise ValueError("Retries must be a non-negative integer.")
 

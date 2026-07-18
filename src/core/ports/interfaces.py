@@ -15,7 +15,7 @@ class INodeProvisioningUseCase(ABC):
     """
 
     @abstractmethod
-    def register_node(self, hostname: str, hardware_specs: Dict[str, Any]) -> Node:
+    async def register_node(self, hostname: str, hardware_specs: Dict[str, Any]) -> Node:
         """Register a new worker node in the system.
 
         Args:
@@ -30,7 +30,7 @@ class INodeProvisioningUseCase(ABC):
         """
 
     @abstractmethod
-    def process_heartbeat(self, node_id: str) -> None:
+    async def process_heartbeat(self, node_id: str) -> None:
         """Record a heartbeat signal from a worker node.
 
         Args:
@@ -48,7 +48,7 @@ class ITaskOrchestratorUseCase(ABC):
     """
 
     @abstractmethod
-    def create_task(self, idempotency_key: str, payload: Dict[str, Any]) -> Task:
+    async def create_task(self, idempotency_key: str, payload: Dict[str, Any]) -> Task:
         """Create a new task ensuring idempotency.
 
         Args:
@@ -60,7 +60,7 @@ class ITaskOrchestratorUseCase(ABC):
         """
 
     @abstractmethod
-    def dispatch_task(self, task_id: str, node_id: str) -> Task:
+    async def dispatch_task(self, task_id: str, node_id: str) -> Task:
         """Assign and dispatch a pending task to an online node.
 
         Args:
@@ -78,7 +78,7 @@ class ITaskOrchestratorUseCase(ABC):
         """
 
     @abstractmethod
-    def transition_task(self, task_id: str, status: TaskStatus) -> Task:
+    async def transition_task(self, task_id: str, status: TaskStatus) -> Task:
         """Transition a running task to completed or failed state.
 
         Args:
@@ -101,7 +101,7 @@ class ITelemetryIngestionUseCase(ABC):
     """
 
     @abstractmethod
-    def ingest_metrics(self, node_id: str, cpu_usage: float, gpu_usage: float, temperature: float) -> TelemetryMetric:
+    async def ingest_metrics(self, node_id: str, cpu_usage: float, gpu_usage: float, temperature: float) -> TelemetryMetric:
         """Ingest metrics collected from a worker node.
 
         Args:
@@ -129,7 +129,7 @@ class INodeRepository(ABC):
     """
 
     @abstractmethod
-    def save(self, node: Node) -> None:
+    async def save(self, node: Node) -> None:
         """Persist a node's domain state.
 
         Args:
@@ -137,7 +137,7 @@ class INodeRepository(ABC):
         """
 
     @abstractmethod
-    def find_by_id(self, node_id: str) -> Optional[Node]:
+    async def find_by_id(self, node_id: str) -> Optional[Node]:
         """Retrieve a node by its unique identifier.
 
         Args:
@@ -148,7 +148,7 @@ class INodeRepository(ABC):
         """
 
     @abstractmethod
-    def find_by_hostname(self, hostname: str) -> Optional[Node]:
+    async def find_by_hostname(self, hostname: str) -> Optional[Node]:
         """Retrieve a node by its hostname.
 
         Args:
@@ -159,7 +159,7 @@ class INodeRepository(ABC):
         """
 
     @abstractmethod
-    def list_all(self) -> List[Node]:
+    async def list_all(self) -> List[Node]:
         """Retrieve all nodes in the system.
 
         Returns:
@@ -174,7 +174,7 @@ class ITaskRepository(ABC):
     """
 
     @abstractmethod
-    def save(self, task: Task) -> None:
+    async def save(self, task: Task) -> None:
         """Persist a task's domain state.
 
         Args:
@@ -182,7 +182,7 @@ class ITaskRepository(ABC):
         """
 
     @abstractmethod
-    def find_by_id(self, task_id: str) -> Optional[Task]:
+    async def find_by_id(self, task_id: str) -> Optional[Task]:
         """Retrieve a task by its unique identifier.
 
         Args:
@@ -193,7 +193,7 @@ class ITaskRepository(ABC):
         """
 
     @abstractmethod
-    def find_by_idempotency_key(self, key: str) -> Optional[Task]:
+    async def find_by_idempotency_key(self, key: str) -> Optional[Task]:
         """Retrieve a task by its idempotency key.
 
         Args:
@@ -211,7 +211,7 @@ class ITelemetryRepository(ABC):
     """
 
     @abstractmethod
-    def save_metric(self, metric: TelemetryMetric) -> None:
+    async def save_metric(self, metric: TelemetryMetric) -> None:
         """Persist a telemetry metric data point.
 
         Args:
@@ -219,7 +219,7 @@ class ITelemetryRepository(ABC):
         """
 
     @abstractmethod
-    def get_latest_metrics_for_node(self, node_id: str, limit: int = 10) -> List[TelemetryMetric]:
+    async def get_latest_metrics_for_node(self, node_id: str, limit: int = 10) -> List[TelemetryMetric]:
         """Retrieve the most recent metrics for a given node.
 
         Args:
@@ -235,7 +235,7 @@ class IEventPublisher(ABC):
     """Port for dispatching domain events to external messaging brokers (Kafka/Redis/RabbitMQ)."""
 
     @abstractmethod
-    def publish_node_registered(self, node: Node) -> None:
+    async def publish_node_registered(self, node: Node) -> None:
         """Publish an event notifying that a node has been registered.
 
         Args:
@@ -243,7 +243,7 @@ class IEventPublisher(ABC):
         """
 
     @abstractmethod
-    def publish_task_dispatched(self, task: Task) -> None:
+    async def publish_task_dispatched(self, task: Task) -> None:
         """Publish an event notifying that a task has been dispatched.
 
         Args:
@@ -251,7 +251,7 @@ class IEventPublisher(ABC):
         """
 
     @abstractmethod
-    def publish_task_status_changed(self, task: Task) -> None:
+    async def publish_task_status_changed(self, task: Task) -> None:
         """Publish an event notifying that a task status has transitioned.
 
         Args:
