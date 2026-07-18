@@ -1,0 +1,46 @@
+[install]
+python.pkg-path = "python312"
+python.pkg-group = "python-stack"
+
+uv.pkg-path = "uv"
+uv.pkg-group = "python-stack"
+
+postgresql.pkg-path = "postgresql_16"
+redis.pkg-path = "redis"
+
+[vars]
+UV_CACHE_DIR = "$FLOX_ENV_CACHE/uv-cache"
+DATABASE_URL = "postgresql://localhost:5432/gpu_fleet"
+REDIS_URL = "redis://localhost:6379"
+
+[hook]
+on-activate = """
+  # Setup virtual environment dynamically within the Flox Cache
+  venv="$FLOX_ENV_CACHE/venv"
+  if [ ! -d "$venv" ]; then
+    uv venv "$venv" --python python3
+  fi
+  if [ -f "$venv/bin/activate" ]; then
+    source "$venv/bin/activate"
+  fi
+
+  # Auto-install pip requirements if modified
+  if [ -f requirements.txt ] && [ ! -f "$FLOX_ENV_CACHE/.deps_installed" ]; then
+    uv pip install -r requirements.txt --quiet
+    touch "$FLOX_ENV_CACHE/.deps_installed"
+  fi
+"""
+
+[profile]
+common = """
+  # Fast development aliases for the team
+  run-server() { python -m cmd.api.main; }
+  run-tests() { pytest tests/; }
+"""
+
+[services]
+postgres.command = "postgres -D $FLOX_ENV_CACHE/pgdata -k $FLOX_ENV_CACHE"
+redis.command = "redis-server --port 6379 --daemonize no"
+
+[options]
+systems = ["x86_64-linux", "aarch64-linux", "x86_64-darwin", "aarch64-darwin"]
