@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-black text-gray-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⚡ GPU Fleet Commander Dashboard ⚡</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        nvgreen: '#76b900',
+                        nvdark: '#121212',
+                        nvgray: '#1a1a1a'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .glow-border {
+            box-shadow: 0 0 10px rgba(118, 185, 0, 0.2);
+            border: 1px solid rgba(118, 185, 0, 0.3);
+        }
+        .glow-text {
+            text-shadow: 0 0 8px rgba(118, 185, 0, 0.6);
+        }
+        /* Custom scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #121212;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #76b900;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen bg-black text-gray-100 font-mono">
+
+    <!-- Top Navigation Bar -->
+    <header class="border-b border-nvgreen/30 bg-nvdark/95 backdrop-blur px-6 py-4 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <span class="text-3xl">⚡</span>
+                <div>
+                    <h1 class="text-xl font-bold tracking-wider text-nvgreen glow-text">GPU FLEET COMMANDER</h1>
+                    <p class="text-xs text-gray-400">Distributed Grid Control Plane Telemetry Dashboard</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-nvgreen/10 border border-nvgreen/30">
+                    <span id="connection-status-dot" class="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></span>
+                    <span id="connection-status-text" class="text-xs uppercase font-semibold text-red-400">Disconnected</span>
+                </div>
+                <div>
+                    <select id="node-selector" class="bg-black text-nvgreen border border-nvgreen/30 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-nvgreen">
+                        <option value="">-- Select Active Node --</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-6 grid grid-cols-1 lg:grid-cols-4 gap-6">
+
+        <!-- Sidebar / Overview & Logs -->
+        <section class="lg:col-span-1 flex flex-col gap-6">
+            <!-- Summary Card -->
+            <div class="bg-nvdark rounded-lg p-5 border border-nvgreen/20 glow-border">
+                <h2 class="text-sm font-semibold text-nvgreen border-b border-nvgreen/20 pb-2 mb-4">FLEET SUMMARY</h2>
+                <div class="grid grid-cols-2 gap-4 text-center">
+                    <div class="bg-black/50 p-3 rounded border border-gray-800">
+                        <div class="text-2xl font-bold text-nvgreen" id="summary-nodes-count">0</div>
+                        <div class="text-[10px] text-gray-400 uppercase tracking-wider">Active Nodes</div>
+                    </div>
+                    <div class="bg-black/50 p-3 rounded border border-gray-800">
+                        <div class="text-2xl font-bold text-nvgreen" id="summary-metrics-count">0</div>
+                        <div class="text-[10px] text-gray-400 uppercase tracking-wider">Total Ticks</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ingestion Stream Logs -->
+            <div class="bg-nvdark rounded-lg p-5 border border-nvgreen/20 glow-border flex-1 flex flex-col min-h-[300px]">
+                <h2 class="text-sm font-semibold text-nvgreen border-b border-nvgreen/20 pb-2 mb-3 flex justify-between">
+                    <span>LIVE METRICS STREAM</span>
+                    <span class="text-xs animate-pulse text-nvgreen">●</span>
+                </h2>
+                <div id="logs-container" class="flex-1 overflow-y-auto text-xs space-y-2 h-[350px] font-mono text-gray-400">
+                    <div class="text-gray-500 italic">Waiting for WebSocket data stream...</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Metrics Charts Section -->
+        <section class="lg:col-span-3 grid grid-cols-1 gap-6">
+            <!-- CPU Chart Container -->
+            <div class="bg-nvdark rounded-lg p-5 border border-nvgreen/20 glow-border">
+                <h2 class="text-xs font-semibold uppercase tracking-wider text-nvgreen mb-3">Processor Utilization (CPU %)</h2>
+                <div class="h-48">
+                    <canvas id="cpuChart"></canvas>
+                </div>
+            </div>
+
+            <!-- GPU Chart Container -->
+            <div class="bg-nvdark rounded-lg p-5 border border-nvgreen/20 glow-border">
+                <h2 class="text-xs font-semibold uppercase tracking-wider text-nvgreen mb-3">GPU Compute Workload (GPU %)</h2>
+                <div class="h-48">
+                    <canvas id="gpuChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Temperature Chart Container -->
+            <div class="bg-nvdark rounded-lg p-5 border border-nvgreen/20 glow-border">
+                <h2 class="text-xs font-semibold uppercase tracking-wider text-red-500 mb-3">Thermal Core Telemetry (TEMP °C)</h2>
+                <div class="h-48">
+                    <canvas id="tempChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="border-t border-nvgreen/20 bg-nvdark/95 py-4 text-center text-xs text-gray-500">
+        GPU Fleet Commander Control Panel • Asynchronous WebSocket Ingestion Engine
+    </footer>
+
+    <!-- WebSocket Client and Chart Configuration script -->
+    <script>
+        const nodeDataStore = {};
+        let selectedNodeId = "";
+        let metricCount = 0;
+
+        // Dom elements
+        const nodeSelector = document.getElementById("node-selector");
+        const statusDot = document.getElementById("connection-status-dot");
+        const statusText = document.getElementById("connection-status-text");
+        const summaryNodesCount = document.getElementById("summary-nodes-count");
+        const summaryMetricsCount = document.getElementById("summary-metrics-count");
+        const logsContainer = document.getElementById("logs-container");
+
+        // Helper: Chart Options Creator
+        function createChartConfig(label, borderColor, yMin, yMax, yLabel) {
+            return {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: label,
+                        data: [],
+                        borderColor: borderColor,
+                        backgroundColor: borderColor + '10',
+                        borderWidth: 2,
+                        tension: 0.3,
+                        fill: true,
+                        pointRadius: 2,
+                        pointHoverRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#888', font: { family: 'monospace', size: 9 } }
+                        },
+                        y: {
+                            min: yMin,
+                            max: yMax,
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#888', font: { family: 'monospace', size: 9 } },
+                            title: { display: true, text: yLabel, color: '#888', font: { family: 'monospace', size: 10 } }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            };
+        }
+
+        // Initialize Chart.js Instances
+        const cpuChart = new Chart(document.getElementById("cpuChart").getContext("2d"), createChartConfig("CPU Usage", "#76b900", 0, 100, "%"));
+        const gpuChart = new Chart(document.getElementById("gpuChart").getContext("2d"), createChartConfig("GPU Usage", "#3b82f6", 0, 100, "%"));
+        const tempChart = new Chart(document.getElementById("tempChart").getContext("2d"), createChartConfig("Core Temperature", "#ef4444", 20, 100, "°C"));
+
+        // Helper: Update Dropdown Node Selector list
+        function updateNodeSelector(nodeId) {
+            if (!nodeDataStore[nodeId]) {
+                nodeDataStore[nodeId] = {
+                    cpu: [],
+                    gpu: [],
+                    temp: [],
+                    labels: []
+                };
+
+                const option = document.createElement("option");
+                option.value = nodeId;
+                option.textContent = nodeId.substring(0, 12) + "...";
+                nodeSelector.appendChild(option);
+
+                // Auto-select first node if none selected
+                if (!selectedNodeId) {
+                    selectedNodeId = nodeId;
+                    nodeSelector.value = nodeId;
+                }
+
+                summaryNodesCount.textContent = Object.keys(nodeDataStore).length;
+            }
+        }
+
+        // Helper: Push data to store and trim history
+        function storeTelemetry(nodeId, cpu, gpu, temp, timeLabel) {
+            updateNodeSelector(nodeId);
+
+            const store = nodeDataStore[nodeId];
+            store.cpu.push(cpu);
+            store.gpu.push(gpu);
+            store.temp.push(temp);
+            store.labels.push(timeLabel);
+
+            // Keep only latest 20 metric ticks to prevent memory growth
+            const maxTicks = 20;
+            if (store.cpu.length > maxTicks) {
+                store.cpu.shift();
+                store.gpu.shift();
+                store.temp.shift();
+                store.labels.shift();
+            }
+        }
+
+        // Helper: Redraw Chart based on selected node data
+        function updateCharts() {
+            if (!selectedNodeId || !nodeDataStore[selectedNodeId]) return;
+
+            const store = nodeDataStore[selectedNodeId];
+
+            cpuChart.data.labels = store.labels;
+            cpuChart.data.datasets[0].data = store.cpu;
+            cpuChart.update();
+
+            gpuChart.data.labels = store.labels;
+            gpuChart.data.datasets[0].data = store.gpu;
+            gpuChart.update();
+
+            tempChart.data.labels = store.labels;
+            tempChart.data.datasets[0].data = store.temp;
+            tempChart.update();
+        }
+
+        // Event listener: Selector changed
+        nodeSelector.addEventListener("change", (e) => {
+            selectedNodeId = e.target.value;
+            updateCharts();
+        });
+
+        // Initialize WebSocket Connection
+        function connectWebSocket() {
+            const ws = new WebSocket("ws://" + window.location.host + "/v1/ws/telemetry");
+
+            ws.onopen = () => {
+                statusDot.className = "w-2.5 h-2.5 rounded-full bg-nvgreen animate-pulse";
+                statusText.className = "text-xs uppercase font-semibold text-nvgreen glow-text";
+                statusText.textContent = "Live Stream Connected";
+                logsContainer.innerHTML = "";
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    const { node_id, cpu_usage, gpu_usage, temperature, timestamp } = data;
+                    const date = new Date(timestamp);
+                    const timeLabel = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+                    // Store telemetry point
+                    storeTelemetry(node_id, cpu_usage, gpu_usage, temperature, timeLabel);
+
+                    // If incoming payload is from current selected node, redraw
+                    if (node_id === selectedNodeId) {
+                        updateCharts();
+                    }
+
+                    // Increment stats
+                    metricCount++;
+                    summaryMetricsCount.textContent = metricCount;
+
+                    // Log activity in logging terminal
+                    const logEntry = document.createElement("div");
+                    logEntry.className = "border-l border-nvgreen/40 pl-2 py-0.5";
+                    logEntry.innerHTML = `<span class="text-nvgreen">[${timeLabel}]</span> Node <span class="text-blue-400 font-bold">${node_id.substring(0, 8)}</span> -> CPU: ${cpu_usage}%, GPU: ${gpu_usage}%, Temp: ${temperature}°C`;
+                    logsContainer.insertBefore(logEntry, logsContainer.firstChild);
+
+                    // Truncate logs to avoid DOM overload
+                    if (logsContainer.children.length > 50) {
+                        logsContainer.removeChild(logsContainer.lastChild);
+                    }
+
+                } catch (e) {
+                    console.error("Failed to parse socket payload:", e);
+                }
+            };
+
+            ws.onclose = () => {
+                statusDot.className = "w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse";
+                statusText.className = "text-xs uppercase font-semibold text-red-400";
+                statusText.textContent = "Disconnected - Reconnecting...";
+                setTimeout(connectWebSocket, 3000); // Auto reconnect in 3s
+            };
+
+            ws.onerror = (err) => {
+                console.error("WebSocket connection error:", err);
+                ws.close();
+            };
+        }
+
+        // Start Connection
+        connectWebSocket();
+    </script>
+</body>
+</html>

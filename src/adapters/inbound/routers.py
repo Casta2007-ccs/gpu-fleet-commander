@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, WebSocket, WebSocketDisconnect
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.domain.entities import TaskStatus
 from src.core.use_cases.node_provisioning import NodeProvisioningService
@@ -7,6 +7,7 @@ from src.core.use_cases.telemetry_ingestion import TelemetryIngestionService
 from src.adapters.outbound.database import get_db_session
 from src.adapters.outbound.sql_repositories import SqlAsyncNodeRepository, SqlAsyncTaskRepository, SqlAsyncTelemetryRepository
 from src.adapters.outbound.event_publisher import LoggingEventPublisher
+from src.adapters.inbound.websocket_manager import manager
 from src.adapters.inbound.api_schemas import (
     NodeRegisterRequest, NodeResponse,
     TaskCreateRequest, TaskResponse,
@@ -92,4 +93,26 @@ async def ingest_telemetry(
     service: TelemetryIngestionService = Depends(get_telemetry_service)
 ) -> TelemetryResponse:
     metric = await service.ingest_metrics(node_id, request.cpu_usage, request.gpu_usage, request.temperature)
+    
+    # Broadcast ingested telemetry metric payload in real-time to all connected WebSockets
+    await manager.broadcast({
+        "node_id": metric.node_id,
+        "timestamp": metric.timestamp.isoformat(),
+        "cpu_usage": metric.cpu_usage,
+        "gpu_usage": metric.gpu_usage,
+        "temperature": metric.temperature
+    })
+    
     return metric
+
+
+@router.websocket("/ws/telemetry")
+async def websocket_endpoint(websocket: WebSocket) -> None:
+    """Accepts real-time client WebSocket connections and streams live telemetry."""
+    await manager.connect(websocket)
+    try:
+        while True:
+            # Maintain connection open by listening for client messages (heartbeats/commands)
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)

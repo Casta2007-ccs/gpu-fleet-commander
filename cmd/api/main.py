@@ -1,5 +1,6 @@
+import os
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from src.core.domain.exceptions import (
     DomainException, NodeNotFoundError, DuplicateNodeError,
     TaskNotFoundError, NodeOfflineException, InvalidTaskStateException
@@ -74,3 +75,12 @@ app.include_router(router)
 @app.get("/health", status_code=200, summary="API Health Check")
 async def health_check() -> dict[str, str]:
     return {"status": "ONLINE"}
+
+
+# --- Serve Static Dashboard ---
+
+@app.get("/", summary="Serve Web Dashboard")
+async def serve_dashboard() -> FileResponse:
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    public_index = os.path.abspath(os.path.join(current_dir, "../../public/index.html"))
+    return FileResponse(public_index)
