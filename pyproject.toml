@@ -37,7 +37,11 @@ select = [
     "B",   # flake8-bugbear
     "UP",  # pyupgrade (python upgrade syntax)
 ]
-ignore = []
+ignore = [
+    "B008",  # Do not perform function call `Depends` in argument defaults
+    "UP042", # Class inherits from both `str` and `enum.Enum` (required for DB/Pydantic serialization compatibility)
+    "E501",  # Line too long
+]
 
 [tool.ruff.lint.isort]
 combine-as-imports = true

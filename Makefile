@@ -56,6 +56,5 @@ run:
 
 # Cleaning temporary files
 clean:
-	find . -type d -name "__pycache__" -exec rm -rf {} +
-	find . -type f -name "*.py[co]" -delete
-	rm -rf .pytest_cache .ruff_cache .mypy_cache
+	python -c "import shutil, glob, os; [shutil.rmtree(p, ignore_errors=True) for p in glob.glob('**/__pycache__', recursive=True) + ['.pytest_cache', '.ruff_cache', '.mypy_cache']]; [os.remove(f) for f in glob.glob('**/*.py[co]', recursive=True)]"
+

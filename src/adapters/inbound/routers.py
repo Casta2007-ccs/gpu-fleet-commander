@@ -1,19 +1,40 @@
+import logging
 import os
-from fastapi import APIRouter, Depends, status, WebSocket, WebSocketDisconnect, Header, HTTPException, Query
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, WebSocket, WebSocketDisconnect, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.core.domain.entities import TaskStatus
+
+from src.adapters.inbound.api_schemas import (
+    DispatchRequest,
+    NodeRegisterRequest,
+    NodeResponse,
+    TaskCreateRequest,
+    TaskResponse,
+    TelemetryIngestRequest,
+    TelemetryResponse,
+    TransitionRequest,
+)
+from src.adapters.inbound.websocket_manager import manager
+from src.adapters.outbound.database import get_db_session
+from src.adapters.outbound.event_publisher import LoggingEventPublisher
+from src.adapters.outbound.sql_repositories import (
+    SqlAsyncNodeRepository,
+    SqlAsyncTaskRepository,
+    SqlAsyncTelemetryRepository,
+)
+from src.core.domain.exceptions import (
+    DuplicateNodeError,
+    InvalidTaskStateException,
+    InvalidTransitionTargetError,
+    NodeNotFoundError,
+    NodeOfflineException,
+    TaskNotFoundError,
+)
 from src.core.use_cases.node_provisioning import NodeProvisioningService
 from src.core.use_cases.task_orchestrator import TaskOrchestratorService
 from src.core.use_cases.telemetry_ingestion import TelemetryIngestionService
-from src.adapters.outbound.database import get_db_session
-from src.adapters.outbound.sql_repositories import SqlAsyncNodeRepository, SqlAsyncTaskRepository, SqlAsyncTelemetryRepository
-from src.adapters.outbound.event_publisher import LoggingEventPublisher
-from src.adapters.inbound.websocket_manager import manager
-from src.adapters.inbound.api_schemas import (
-    NodeRegisterRequest, NodeResponse,
-    TaskCreateRequest, TaskResponse,
-    TelemetryIngestRequest, TelemetryResponse
-)
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/v1")
 
@@ -53,12 +74,12 @@ async def get_telemetry_service(session: AsyncSession = Depends(get_db_session))
     return TelemetryIngestionService(node_repo, telemetry_repo)
 
 
-# --- Endpoints ---
+# --- Node Endpoints ---
 
 @router.post(
-    "/nodes", 
-    response_model=NodeResponse, 
-    status_code=status.HTTP_201_CREATED, 
+    "/nodes",
+    response_model=NodeResponse,
+    status_code=status.HTTP_201_CREATED,
     summary="Register a worker node",
     dependencies=[Depends(verify_api_key)]
 )
@@ -66,13 +87,16 @@ async def register_node(
     request: NodeRegisterRequest,
     service: NodeProvisioningService = Depends(get_node_service)
 ) -> NodeResponse:
-    node = await service.register_node(request.hostname, request.hardware_specs)
-    return node
+    try:
+        node = await service.register_node(request.hostname, request.hardware_specs)
+        return NodeResponse.model_validate(node)
+    except DuplicateNodeError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
 
 
 @router.post(
-    "/nodes/{node_id}/heartbeat", 
-    status_code=status.HTTP_204_NO_CONTENT, 
+    "/nodes/{node_id}/heartbeat",
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Ingest heartbeat signal",
     dependencies=[Depends(verify_api_key)]
 )
@@ -80,42 +104,79 @@ async def process_heartbeat(
     node_id: str,
     service: NodeProvisioningService = Depends(get_node_service)
 ) -> None:
-    await service.process_heartbeat(node_id)
+    try:
+        await service.process_heartbeat(node_id)
+    except NodeNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.message) from exc
 
 
-@router.post("/tasks", response_model=TaskResponse, status_code=status.HTTP_201_CREATED, summary="Create a computational task")
+# --- Task Endpoints ---
+
+@router.post(
+    "/tasks",
+    response_model=TaskResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a computational task",
+    dependencies=[Depends(verify_api_key)]
+)
 async def create_task(
     request: TaskCreateRequest,
     service: TaskOrchestratorService = Depends(get_task_service)
 ) -> TaskResponse:
     task = await service.create_task(request.idempotency_key, request.payload)
-    return task
-
-
-@router.post("/tasks/{task_id}/dispatch", response_model=TaskResponse, summary="Dispatch task to online node")
-async def dispatch_task(
-    task_id: str,
-    node_id: str,
-    service: TaskOrchestratorService = Depends(get_task_service)
-) -> TaskResponse:
-    task = await service.dispatch_task(task_id, node_id)
-    return task
-
-
-@router.post("/tasks/{task_id}/transition", response_model=TaskResponse, summary="Transition running task status")
-async def transition_task(
-    task_id: str,
-    target_status: TaskStatus,
-    service: TaskOrchestratorService = Depends(get_task_service)
-) -> TaskResponse:
-    task = await service.transition_task(task_id, target_status)
-    return task
+    return TaskResponse.model_validate(task)
 
 
 @router.post(
-    "/nodes/{node_id}/telemetry", 
-    response_model=TelemetryResponse, 
-    status_code=status.HTTP_201_CREATED, 
+    "/tasks/{task_id}/dispatch",
+    response_model=TaskResponse,
+    summary="Dispatch task to online node",
+    dependencies=[Depends(verify_api_key)]
+)
+async def dispatch_task(
+    task_id: str,
+    request: DispatchRequest,
+    service: TaskOrchestratorService = Depends(get_task_service)
+) -> TaskResponse:
+    try:
+        task = await service.dispatch_task(task_id, request.node_id)
+        return TaskResponse.model_validate(task)
+    except TaskNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.message) from exc
+    except NodeNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.message) from exc
+    except NodeOfflineException as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
+
+
+@router.post(
+    "/tasks/{task_id}/transition",
+    response_model=TaskResponse,
+    summary="Transition running task status",
+    dependencies=[Depends(verify_api_key)]
+)
+async def transition_task(
+    task_id: str,
+    request: TransitionRequest,
+    service: TaskOrchestratorService = Depends(get_task_service)
+) -> TaskResponse:
+    try:
+        task = await service.transition_task(task_id, request.target_status)
+        return TaskResponse.model_validate(task)
+    except TaskNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.message) from exc
+    except InvalidTaskStateException as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
+    except InvalidTransitionTargetError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=exc.message) from exc
+
+
+# --- Telemetry Endpoints ---
+
+@router.post(
+    "/nodes/{node_id}/telemetry",
+    response_model=TelemetryResponse,
+    status_code=status.HTTP_201_CREATED,
     summary="Ingest node metrics telemetry",
     dependencies=[Depends(verify_api_key)]
 )
@@ -124,8 +185,11 @@ async def ingest_telemetry(
     request: TelemetryIngestRequest,
     service: TelemetryIngestionService = Depends(get_telemetry_service)
 ) -> TelemetryResponse:
-    metric = await service.ingest_metrics(node_id, request.cpu_usage, request.gpu_usage, request.temperature)
-    
+    try:
+        metric = await service.ingest_metrics(node_id, request.cpu_usage, request.gpu_usage, request.temperature)
+    except NodeNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.message) from exc
+
     # Broadcast telemetry points (via Redis Pub/Sub if active, otherwise local in-memory fallback)
     await manager.publish_telemetry({
         "node_id": metric.node_id,
@@ -134,18 +198,24 @@ async def ingest_telemetry(
         "gpu_usage": metric.gpu_usage,
         "temperature": metric.temperature
     })
-    
-    return metric
 
+    return TelemetryResponse.model_validate(metric)
+
+
+# --- WebSocket Endpoint ---
 
 @router.websocket("/ws/telemetry")
 async def websocket_endpoint(websocket: WebSocket, api_key: str = Query(..., description="Access API Key token")) -> None:
     """Accepts real-time client WebSocket connections and streams live telemetry, verifying API key token."""
+    # Must accept the WebSocket before we can close it with a policy violation code
+    await websocket.accept()
+
     if api_key != API_KEY:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
-        
-    await manager.connect(websocket)
+
+    # Connection is now authenticated — register with the manager (already accepted above)
+    manager.active_connections.append(websocket)
     try:
         while True:
             # Maintain connection open by listening for client keepalives/control messages

@@ -1,9 +1,10 @@
 import uuid
-from datetime import datetime, timezone
-from typing import Any, Dict
+from datetime import UTC, datetime
+from typing import Any
+
 from src.core.domain.entities import Node, NodeStatus
 from src.core.domain.exceptions import DuplicateNodeError, NodeNotFoundError
-from src.core.ports.interfaces import INodeProvisioningUseCase, INodeRepository, IEventPublisher
+from src.core.ports.interfaces import IEventPublisher, INodeProvisioningUseCase, INodeRepository
 
 
 class NodeProvisioningService(INodeProvisioningUseCase):
@@ -11,7 +12,7 @@ class NodeProvisioningService(INodeProvisioningUseCase):
         self._node_repository: INodeRepository = node_repository
         self._event_publisher: IEventPublisher = event_publisher
 
-    async def register_node(self, hostname: str, hardware_specs: Dict[str, Any]) -> Node:
+    async def register_node(self, hostname: str, hardware_specs: dict[str, Any]) -> Node:
         existing_node = await self._node_repository.find_by_hostname(hostname)
         if existing_node is not None:
             raise DuplicateNodeError(hostname)
@@ -21,7 +22,7 @@ class NodeProvisioningService(INodeProvisioningUseCase):
             hostname=hostname,
             status=NodeStatus.ONLINE,
             hardware_specs=hardware_specs,
-            last_heartbeat=datetime.now(timezone.utc)
+            last_heartbeat=datetime.now(UTC)
         )
         await self._node_repository.save(new_node)
         await self._event_publisher.publish_node_registered(new_node)
@@ -32,5 +33,5 @@ class NodeProvisioningService(INodeProvisioningUseCase):
         if node is None:
             raise NodeNotFoundError(node_id)
 
-        updated_node = node.update_heartbeat(datetime.now(timezone.utc))
+        updated_node = node.update_heartbeat(datetime.now(UTC))
         await self._node_repository.save(updated_node)

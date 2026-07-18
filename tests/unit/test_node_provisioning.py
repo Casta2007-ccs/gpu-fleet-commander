@@ -1,9 +1,11 @@
-import pytest
 from datetime import datetime
-from src.core.domain.exceptions import DuplicateNodeError, NodeNotFoundError
+
+import pytest
+
 from src.core.domain.entities import NodeStatus
+from src.core.domain.exceptions import DuplicateNodeError, NodeNotFoundError
 from src.core.use_cases.node_provisioning import NodeProvisioningService
-from tests.unit.fakes import FakeNodeRepository, FakeEventPublisher
+from tests.unit.fakes import FakeEventPublisher, FakeNodeRepository
 
 
 @pytest.fixture
@@ -29,9 +31,9 @@ async def test_register_node_success(
 ):
     hostname = "nv-jetson-01"
     specs = {"gpu": "Orin Nano", "memory_gb": 8}
-    
+
     node = await service.register_node(hostname, specs)
-    
+
     # Assertions on returned Node
     assert node.id is not None
     assert node.hostname == hostname
@@ -61,7 +63,7 @@ async def test_register_node_duplicate_hostname_raises_error(service: NodeProvis
     # Attempt to register second time with same hostname
     with pytest.raises(DuplicateNodeError) as exc_info:
         await service.register_node(hostname, specs)
-    
+
     assert hostname in str(exc_info.value)
 
 
@@ -69,15 +71,16 @@ async def test_register_node_duplicate_hostname_raises_error(service: NodeProvis
 async def test_process_heartbeat_success(service: NodeProvisioningService, node_repo: FakeNodeRepository):
     hostname = "nv-jetson-01"
     specs = {"gpu": "Orin Nano"}
-    
+
     node = await service.register_node(hostname, specs)
     initial_heartbeat = node.last_heartbeat
-    
+
     # Process heartbeat
     await service.process_heartbeat(node.id)
-    
+
     # Check node in repository updated
     updated_node = await node_repo.find_by_id(node.id)
+    assert updated_node is not None
     assert updated_node.last_heartbeat > initial_heartbeat
     assert updated_node.status == NodeStatus.ONLINE
 

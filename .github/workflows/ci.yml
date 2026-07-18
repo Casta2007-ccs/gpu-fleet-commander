@@ -8,23 +8,8 @@ on:
 
 jobs:
   test:
-    name: Run Python Tests
+    name: Lint, Check & Test
     runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_DB: gpu_fleet_test
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
 
     steps:
     - name: Checkout Repository
@@ -40,13 +25,17 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
+        pip install -r requirements-dev.txt
 
-    - name: Run Syntax Compilation Check (py_compile)
+    - name: Run Linting (ruff)
       run: |
-        python -m py_compile $(find src/ cmd/ -name "*.py")
+        python -m ruff check src/ cmd/ tests/
+
+    - name: Run Syntax Compilation Check
+      run: |
+        python -m compileall src/ cmd/
 
     - name: Run Unit Tests
-      env:
-        DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/gpu_fleet_test
       run: |
-        python -m pytest tests/unit/
+        python -m pytest tests/unit/ -v
+

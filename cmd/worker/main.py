@@ -4,6 +4,7 @@ import os
 import random
 import sys
 import uuid
+
 import httpx
 
 # Configure Logging to stream clearly to stdout
@@ -35,6 +36,7 @@ async def register_node(client: httpx.AsyncClient, hostname: str, hardware_specs
     Performs indefinite retries with exponential backoff if the API is offline.
     """
     backoff = 2.0
+    base_hostname = hostname
     while True:
         try:
             logger.info(f"Attempting to register node '{hostname}' with specs: {hardware_specs}...")
@@ -56,10 +58,10 @@ async def register_node(client: httpx.AsyncClient, hostname: str, hardware_specs
             if exc.response.status_code == 409:
                 # Handle name collision recovery by appending a random suffix
                 logger.error("Hostname collision. Generating new suffix and retrying...")
-                hostname = f"{hostname}-retry-{random.randint(100, 999)}"
+                hostname = f"{base_hostname}-retry-{random.randint(100, 999)}"
             else:
                 logger.error(f"HTTP error during registration: {exc.response.text}. Retrying...")
-        
+
         await asyncio.sleep(backoff)
         backoff = min(backoff * 2, 60.0)
 
@@ -83,7 +85,7 @@ async def send_telemetry(client: httpx.AsyncClient, node_id: str) -> bool:
     cpu = round(random.uniform(10.0, 90.0), 1)
     gpu = round(random.uniform(0.0, 100.0), 1)
     temp = round(random.uniform(40.0, 85.0), 1)
-    
+
     try:
         logger.info(f"Telemetry metrics -> CPU: {cpu}%, GPU: {gpu}%, Temp: {temp}°C")
         response = await client.post(
@@ -109,22 +111,22 @@ async def main() -> None:
     node_suffix = str(uuid.uuid4())[:8]
     hostname = f"gpu-node-{node_suffix}"
     hardware_specs = random.choice(GPU_MODELS)
-    
+
     logger.info("Starting GPU Fleet Commander Worker Simulator...")
     logger.info(f"Target API Server: {API_URL}")
-    
+
     # Load pre-shared API Key credentials
     api_key = os.getenv("API_KEY", "gpu_fleet_secure_token_2026")
-    
+
     # Setup HTTP client limits and timeouts suited for keeping connections alive
     limits = httpx.Limits(max_keepalive_connections=5, max_connections=10)
     timeout = httpx.Timeout(5.0, connect=10.0)
     headers = {"X-API-Key": api_key}
-    
+
     async with httpx.AsyncClient(limits=limits, timeout=timeout, headers=headers) as client:
         # Step 1: Register node
         node_id = await register_node(client, hostname, hardware_specs)
-        
+
         # Step 2: Continuous Ingestion loop
         while True:
             logger.info("Executing keepalive and telemetry transmission task...")

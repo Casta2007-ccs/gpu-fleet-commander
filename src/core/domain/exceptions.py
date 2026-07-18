@@ -37,3 +37,10 @@ class InvalidTaskStateException(DomainException):
     """Raised when a task transitions into an invalid state."""
     def __init__(self, message: str) -> None:
         super().__init__(message)
+
+
+class InvalidTransitionTargetError(DomainException):
+    """Raised when a task transition targets an unsupported status."""
+    def __init__(self, target_status: str) -> None:
+        super().__init__(f"Invalid transition target status: '{target_status}'. Only COMPLETED or FAILED are allowed.")
+        self.target_status = target_status

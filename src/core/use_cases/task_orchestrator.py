@@ -1,9 +1,15 @@
 import uuid
-from datetime import datetime, timezone
-from typing import Any, Dict
-from src.core.domain.entities import Task, TaskStatus, NodeStatus
-from src.core.domain.exceptions import TaskNotFoundError, NodeNotFoundError, NodeOfflineException
-from src.core.ports.interfaces import ITaskOrchestratorUseCase, ITaskRepository, INodeRepository, IEventPublisher
+from datetime import UTC, datetime
+from typing import Any
+
+from src.core.domain.entities import NodeStatus, Task, TaskStatus
+from src.core.domain.exceptions import (
+    InvalidTransitionTargetError,
+    NodeNotFoundError,
+    NodeOfflineException,
+    TaskNotFoundError,
+)
+from src.core.ports.interfaces import IEventPublisher, INodeRepository, ITaskOrchestratorUseCase, ITaskRepository
 
 
 class TaskOrchestratorService(ITaskOrchestratorUseCase):
@@ -17,7 +23,7 @@ class TaskOrchestratorService(ITaskOrchestratorUseCase):
         self._node_repository: INodeRepository = node_repository
         self._event_publisher: IEventPublisher = event_publisher
 
-    async def create_task(self, idempotency_key: str, payload: Dict[str, Any]) -> Task:
+    async def create_task(self, idempotency_key: str, payload: dict[str, Any]) -> Task:
         existing_task = await self._task_repository.find_by_idempotency_key(idempotency_key)
         if existing_task is not None:
             return existing_task
@@ -27,7 +33,7 @@ class TaskOrchestratorService(ITaskOrchestratorUseCase):
             payload=payload,
             status=TaskStatus.PENDING,
             idempotency_key=idempotency_key,
-            created_at=datetime.now(timezone.utc)
+            created_at=datetime.now(UTC)
         )
         await self._task_repository.save(new_task)
         return new_task
@@ -54,13 +60,13 @@ class TaskOrchestratorService(ITaskOrchestratorUseCase):
         if task is None:
             raise TaskNotFoundError(task_id)
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if status == TaskStatus.COMPLETED:
             updated_task = task.complete(now)
         elif status == TaskStatus.FAILED:
             updated_task = task.fail(now)
         else:
-            raise ValueError(f"Invalid transition target status for core update: {status}")
+            raise InvalidTransitionTargetError(str(status.value))
 
         await self._task_repository.save(updated_task)
         await self._event_publisher.publish_task_status_changed(updated_task)

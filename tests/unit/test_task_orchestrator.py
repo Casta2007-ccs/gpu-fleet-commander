@@ -1,9 +1,17 @@
+from datetime import UTC, datetime
+
 import pytest
-from datetime import datetime, timezone
-from src.core.domain.exceptions import TaskNotFoundError, NodeNotFoundError, NodeOfflineException, InvalidTaskStateException
-from src.core.domain.entities import TaskStatus, Node, NodeStatus
+
+from src.core.domain.entities import Node, NodeStatus, TaskStatus
+from src.core.domain.exceptions import (
+    InvalidTaskStateException,
+    InvalidTransitionTargetError,
+    NodeNotFoundError,
+    NodeOfflineException,
+    TaskNotFoundError,
+)
 from src.core.use_cases.task_orchestrator import TaskOrchestratorService
-from tests.unit.fakes import FakeTaskRepository, FakeNodeRepository, FakeEventPublisher
+from tests.unit.fakes import FakeEventPublisher, FakeNodeRepository, FakeTaskRepository
 
 
 @pytest.fixture
@@ -74,7 +82,7 @@ async def test_dispatch_task_success(
         hostname="nv-host-01",
         status=NodeStatus.ONLINE,
         hardware_specs={},
-        last_heartbeat=datetime.now(timezone.utc)
+        last_heartbeat=datetime.now(UTC)
     )
     await node_repo.save(node)
 
@@ -105,7 +113,7 @@ async def test_dispatch_task_node_offline_raises_error(
         hostname="nv-host-01",
         status=NodeStatus.OFFLINE,
         hardware_specs={},
-        last_heartbeat=datetime.now(timezone.utc)
+        last_heartbeat=datetime.now(UTC)
     )
     await node_repo.save(node)
 
@@ -140,7 +148,7 @@ async def test_transition_task_completed_success(
     event_publisher: FakeEventPublisher
 ):
     # Setup node and running task
-    node = Node("node-1", "nv-host-01", NodeStatus.ONLINE, {}, datetime.now(timezone.utc))
+    node = Node("node-1", "nv-host-01", NodeStatus.ONLINE, {}, datetime.now(UTC))
     await node_repo.save(node)
     task = await service.create_task("key-1", {"job": "compile"})
     await service.dispatch_task(task.id, node.id)
@@ -163,7 +171,7 @@ async def test_transition_task_failed_success(
     node_repo: FakeNodeRepository,
     event_publisher: FakeEventPublisher
 ):
-    node = Node("node-1", "nv-host-01", NodeStatus.ONLINE, {}, datetime.now(timezone.utc))
+    node = Node("node-1", "nv-host-01", NodeStatus.ONLINE, {}, datetime.now(UTC))
     await node_repo.save(node)
     task = await service.create_task("key-1", {"job": "compile"})
     await service.dispatch_task(task.id, node.id)
@@ -185,3 +193,19 @@ async def test_transition_invalid_state_raises_error(
 
     with pytest.raises(InvalidTaskStateException):
         await service.transition_task(task.id, TaskStatus.COMPLETED)
+
+
+@pytest.mark.asyncio
+async def test_transition_invalid_target_status_raises_error(
+    service: TaskOrchestratorService,
+    task_repo: FakeTaskRepository,
+    node_repo: FakeNodeRepository
+):
+    node = Node("node-1", "nv-host-01", NodeStatus.ONLINE, {}, datetime.now(UTC))
+    await node_repo.save(node)
+    task = await service.create_task("key-1", {"job": "compile"})
+    await service.dispatch_task(task.id, node.id)
+
+    with pytest.raises(InvalidTransitionTargetError):
+        await service.transition_task(task.id, TaskStatus.RUNNING)
+

@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
-from src.core.domain.entities import Node, Task, TaskStatus, TelemetryMetric
+from typing import Any
 
+from src.core.domain.entities import Node, Task, TaskStatus, TelemetryMetric
 
 # ==============================================================================
 # INBOUND PORTS (Driving Ports / Use Cases)
@@ -15,7 +15,7 @@ class INodeProvisioningUseCase(ABC):
     """
 
     @abstractmethod
-    async def register_node(self, hostname: str, hardware_specs: Dict[str, Any]) -> Node:
+    async def register_node(self, hostname: str, hardware_specs: dict[str, Any]) -> Node:
         """Register a new worker node in the system.
 
         Args:
@@ -48,7 +48,7 @@ class ITaskOrchestratorUseCase(ABC):
     """
 
     @abstractmethod
-    async def create_task(self, idempotency_key: str, payload: Dict[str, Any]) -> Task:
+    async def create_task(self, idempotency_key: str, payload: dict[str, Any]) -> Task:
         """Create a new task ensuring idempotency.
 
         Args:
@@ -137,7 +137,7 @@ class INodeRepository(ABC):
         """
 
     @abstractmethod
-    async def find_by_id(self, node_id: str) -> Optional[Node]:
+    async def find_by_id(self, node_id: str) -> Node | None:
         """Retrieve a node by its unique identifier.
 
         Args:
@@ -148,7 +148,7 @@ class INodeRepository(ABC):
         """
 
     @abstractmethod
-    async def find_by_hostname(self, hostname: str) -> Optional[Node]:
+    async def find_by_hostname(self, hostname: str) -> Node | None:
         """Retrieve a node by its hostname.
 
         Args:
@@ -159,7 +159,7 @@ class INodeRepository(ABC):
         """
 
     @abstractmethod
-    async def list_all(self) -> List[Node]:
+    async def list_all(self) -> list[Node]:
         """Retrieve all nodes in the system.
 
         Returns:
@@ -182,7 +182,7 @@ class ITaskRepository(ABC):
         """
 
     @abstractmethod
-    async def find_by_id(self, task_id: str) -> Optional[Task]:
+    async def find_by_id(self, task_id: str) -> Task | None:
         """Retrieve a task by its unique identifier.
 
         Args:
@@ -193,7 +193,7 @@ class ITaskRepository(ABC):
         """
 
     @abstractmethod
-    async def find_by_idempotency_key(self, key: str) -> Optional[Task]:
+    async def find_by_idempotency_key(self, key: str) -> Task | None:
         """Retrieve a task by its idempotency key.
 
         Args:
@@ -219,7 +219,7 @@ class ITelemetryRepository(ABC):
         """
 
     @abstractmethod
-    async def get_latest_metrics_for_node(self, node_id: str, limit: int = 10) -> List[TelemetryMetric]:
+    async def get_latest_metrics_for_node(self, node_id: str, limit: int = 10) -> list[TelemetryMetric]:
         """Retrieve the most recent metrics for a given node.
 
         Args:

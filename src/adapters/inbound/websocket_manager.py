@@ -1,9 +1,13 @@
 import json
 import logging
 import os
-from typing import List
+
 from fastapi import WebSocket
-import redis.asyncio as aioredis
+
+try:
+    import redis.asyncio as aioredis
+except ImportError:
+    aioredis = None
 
 logger = logging.getLogger("WebSocketManager")
 
@@ -12,21 +16,23 @@ class ConnectionManager:
     """Manages active WebSocket connections and integrates Redis Pub/Sub for scalability."""
 
     def __init__(self) -> None:
-        self.active_connections: List[WebSocket] = []
+        self.active_connections: list[WebSocket] = []
         self.redis_client = None
-        
+
         redis_url = os.getenv("REDIS_URL")
-        if redis_url:
+        if redis_url and aioredis is not None:
             try:
                 self.redis_client = aioredis.from_url(redis_url)
                 logger.info(f"WebSocketManager configured with Redis Pub/Sub at: {redis_url}")
             except Exception as exc:
                 logger.error(f"Failed to initialize Redis connection: {exc}. Falling back to local in-memory mode.")
+        elif redis_url and aioredis is None:
+            logger.warning("REDIS_URL set but redis package is not installed. Falling back to local in-memory mode.")
         else:
             logger.info("WebSocketManager initialized in Local In-Memory fallback mode (no REDIS_URL provided).")
 
     async def connect(self, websocket: WebSocket) -> None:
-        await websocket.accept()
+        # Note: WebSocket acceptance is handled in the router to allow verification checks beforehand
         self.active_connections.append(websocket)
 
     def disconnect(self, websocket: WebSocket) -> None:
@@ -37,7 +43,8 @@ class ConnectionManager:
         """Broadcast telemetry data payload directly to all connected websocket clients."""
         serialized_msg = json.dumps(message)
         disconnected = []
-        for connection in self.active_connections:
+        # Create a shallow copy to prevent concurrent modification exceptions
+        for connection in list(self.active_connections):
             try:
                 await connection.send_text(serialized_msg)
             except Exception:

@@ -1,16 +1,56 @@
 import asyncio
-from contextlib import asynccontextmanager
 import json
+import logging
 import os
+from contextlib import asynccontextmanager
+
 import redis.asyncio as aioredis
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse, FileResponse
-from src.core.domain.exceptions import (
-    DomainException, NodeNotFoundError, DuplicateNodeError,
-    TaskNotFoundError, NodeOfflineException, InvalidTaskStateException
-)
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse
+
 from src.adapters.inbound.routers import router
 from src.adapters.inbound.websocket_manager import manager
+from src.core.domain.exceptions import (
+    DomainException,
+    DuplicateNodeError,
+    InvalidTaskStateException,
+    NodeNotFoundError,
+    NodeOfflineException,
+    TaskNotFoundError,
+)
+
+logger = logging.getLogger("APIEntrypoint")
+
+
+async def listen_redis(redis_url: str) -> None:
+    """Listens to Redis Pub/Sub and broadcasts messages to active WebSocket connections."""
+    while True:
+        try:
+            logger.info("Attempting to connect to Redis Pub/Sub subscription...")
+            client = aioredis.from_url(redis_url)
+            pubsub = client.pubsub()
+            await pubsub.subscribe("telemetry_channel")
+            logger.info("Subscribed to Redis telemetry_channel. Listening for broadcasts...")
+            async for message in pubsub.listen():
+                if message and message["type"] == "message":
+                    data = json.loads(message["data"])
+                    await manager.broadcast(data)
+        except asyncio.CancelledError:
+            logger.info("Redis Pub/Sub background listener cancelled.")
+            break
+        except Exception as e:
+            logger.error(f"Redis Pub/Sub background listener encountered error: {e}. Reconnecting in 5 seconds...")
+            await asyncio.sleep(5)
+        finally:
+            try:
+                await pubsub.close()
+            except Exception:
+                pass
+            try:
+                await client.aclose()
+            except Exception:
+                pass
 
 
 @asynccontextmanager
@@ -18,27 +58,9 @@ async def lifespan(app: FastAPI):
     """Manages application startup and shutdown events, subscribing to Redis Pub/Sub if configured."""
     redis_url = os.getenv("REDIS_URL")
     listener_task = None
-    
-    if redis_url:
-        async def listen_redis():
-            client = aioredis.from_url(redis_url)
-            pubsub = client.pubsub()
-            await pubsub.subscribe("telemetry_channel")
-            try:
-                async for message in pubsub.listen():
-                    if message and message["type"] == "message":
-                        data = json.loads(message["data"])
-                        await manager.broadcast(data)
-            except asyncio.CancelledError:
-                pass
-            except Exception as e:
-                import logging
-                logging.getLogger("lifespan").error(f"Redis Pub/Sub background listener encountered error: {e}")
-            finally:
-                await pubsub.close()
-                await client.aclose()
 
-        listener_task = asyncio.create_task(listen_redis())
+    if redis_url:
+        listener_task = asyncio.create_task(listen_redis(redis_url))
 
     yield
 
@@ -56,6 +78,15 @@ app = FastAPI(
     description="Control Plane and Telemetry Ingestion Hub for distributed worker nodes.",
     version="1.0.0",
     lifespan=lifespan
+)
+
+# Configure CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 

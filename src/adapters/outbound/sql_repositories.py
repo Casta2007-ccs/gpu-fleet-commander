@@ -1,9 +1,10 @@
-from typing import List, Optional
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.adapters.outbound.orm_models import NodeORM, TaskORM, TelemetryMetricORM
 from src.core.domain.entities import Node, Task, TelemetryMetric
 from src.core.ports.interfaces import INodeRepository, ITaskRepository, ITelemetryRepository
-from src.adapters.outbound.orm_models import NodeORM, TaskORM, TelemetryMetricORM
 
 
 class SqlAsyncNodeRepository(INodeRepository):
@@ -31,7 +32,7 @@ class SqlAsyncNodeRepository(INodeRepository):
             self._session.add(db_node)
         await self._session.flush()  # Push changes to transaction log, let session wrapper commit
 
-    async def find_by_id(self, node_id: str) -> Optional[Node]:
+    async def find_by_id(self, node_id: str) -> Node | None:
         db_node = await self._session.get(NodeORM, node_id)
         if db_node is None:
             return None
@@ -43,7 +44,7 @@ class SqlAsyncNodeRepository(INodeRepository):
             last_heartbeat=db_node.last_heartbeat
         )
 
-    async def find_by_hostname(self, hostname: str) -> Optional[Node]:
+    async def find_by_hostname(self, hostname: str) -> Node | None:
         stmt = select(NodeORM).where(NodeORM.hostname == hostname)
         result = await self._session.execute(stmt)
         db_node = result.scalar_one_or_none()
@@ -57,7 +58,7 @@ class SqlAsyncNodeRepository(INodeRepository):
             last_heartbeat=db_node.last_heartbeat
         )
 
-    async def list_all(self) -> List[Node]:
+    async def list_all(self) -> list[Node]:
         stmt = select(NodeORM)
         result = await self._session.execute(stmt)
         db_nodes = result.scalars().all()
@@ -101,7 +102,7 @@ class SqlAsyncTaskRepository(ITaskRepository):
             self._session.add(db_task)
         await self._session.flush()
 
-    async def find_by_id(self, task_id: str) -> Optional[Task]:
+    async def find_by_id(self, task_id: str) -> Task | None:
         db_task = await self._session.get(TaskORM, task_id)
         if db_task is None:
             return None
@@ -116,7 +117,7 @@ class SqlAsyncTaskRepository(ITaskRepository):
             completed_at=db_task.completed_at
         )
 
-    async def find_by_idempotency_key(self, key: str) -> Optional[Task]:
+    async def find_by_idempotency_key(self, key: str) -> Task | None:
         stmt = select(TaskORM).where(TaskORM.idempotency_key == key)
         result = await self._session.execute(stmt)
         db_task = result.scalar_one_or_none()
@@ -151,7 +152,7 @@ class SqlAsyncTelemetryRepository(ITelemetryRepository):
         self._session.add(db_metric)
         await self._session.flush()
 
-    async def get_latest_metrics_for_node(self, node_id: str, limit: int = 10) -> List[TelemetryMetric]:
+    async def get_latest_metrics_for_node(self, node_id: str, limit: int = 10) -> list[TelemetryMetric]:
         stmt = (
             select(TelemetryMetricORM)
             .where(TelemetryMetricORM.node_id == node_id)

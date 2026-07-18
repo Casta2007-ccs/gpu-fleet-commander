@@ -1,7 +1,8 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
 from src.core.domain.entities import TelemetryMetric
 from src.core.domain.exceptions import NodeNotFoundError
-from src.core.ports.interfaces import ITelemetryIngestionUseCase, INodeRepository, ITelemetryRepository
+from src.core.ports.interfaces import INodeRepository, ITelemetryIngestionUseCase, ITelemetryRepository
 
 
 class TelemetryIngestionService(ITelemetryIngestionUseCase):
@@ -18,7 +19,7 @@ class TelemetryIngestionService(ITelemetryIngestionUseCase):
 
         metric = TelemetryMetric(
             node_id=node_id,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             cpu_usage=cpu_usage,
             gpu_usage=gpu_usage,
             temperature=temperature

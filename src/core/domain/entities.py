@@ -1,7 +1,8 @@
 from dataclasses import dataclass, field, replace
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any
+
 from src.core.domain.exceptions import InvalidTaskStateException
 
 
@@ -23,7 +24,7 @@ class Node:
     id: str
     hostname: str
     status: NodeStatus
-    hardware_specs: Dict[str, Any]
+    hardware_specs: dict[str, Any]
     last_heartbeat: datetime
 
     def __post_init__(self) -> None:
@@ -51,13 +52,13 @@ class Node:
 @dataclass(frozen=True)
 class Task:
     id: str
-    payload: Dict[str, Any]
+    payload: dict[str, Any]
     status: TaskStatus
     idempotency_key: str
     retries: int = 0
-    node_id: Optional[str] = None
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    completed_at: Optional[datetime] = None
+    node_id: str | None = None
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    completed_at: datetime | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.id, str) or not self.id.strip():
