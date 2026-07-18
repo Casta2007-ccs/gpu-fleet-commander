@@ -210,6 +210,24 @@ The `Makefile` encapsulates system tasks, making it easy to run automated pipeli
 
 ---
 
+## 🧠 Lessons Learned & Engineering Challenges (Self-Retrospective)
+
+Every high-quality project is a result of navigating technical challenges. Here is a brief look at the architectural hurdles encountered during development and how they were solved:
+
+### 1. Python Namespace Collision with `cmd/` Folder Structure
+*   **The Issue**: Following Go-like project layouts, the application entrypoints were structured inside `cmd/api/main.py` and `cmd/worker/main.py`. However, Python includes a built-in standard library package named `cmd`. Running scripts or doing imports like `from cmd.api.main import app` triggered `ModuleNotFoundError: No module named 'cmd.api'; 'cmd' is not a package` conflicts as Python prioritized the standard library over local directory paths.
+*   **The Resolution**: Added absolute search paths (`sys.path`) at the top of standalone tools and invoked running modules using direct paths/virtual env interpreters (`python -m cmd.api.main`) to override default namespace resolution.
+
+### 2. SQLAlchemy 2.0 `MissingGreenlet` context leakage
+*   **The Issue**: When designing the asynchronous outbound repositories, trying to evaluate lazy-loaded relationships or returning raw ORM database schemas directly to the HTTP routers caused `sqlalchemy.exc.MissingGreenlet: Instance <Model> is not fully initialized` exceptions. This was because the connection session was closed or executed outside of the greenlet-context.
+*   **The Resolution**: Enforced strict Hexagonal boundaries. Outbound adapters now map ORM models back to pure immutable domain entities *before* returning them, ensuring all properties are loaded while the async transaction context is open.
+
+### 3. Database Integrity Errors vs. Domain Idempotency
+*   **The Issue**: When simulated worker nodes sent simultaneous task execution requests (simulating high network latency and immediate retries), the idempotency verification check had a race condition. Two threads could verify `find_by_idempotency_key` simultaneously, find no records, and attempt to write, leading to PostgreSQL unique constraint violations (`IntegrityError`).
+*   **The Resolution**: Captured database-specific `IntegrityError` exceptions inside the async outbound repository adapters, converting them dynamically into domain-specific exceptions (`DuplicateTaskError`) to return the existing task gracefully without failing.
+
+---
+
 ## 📄 License
 
 This project is licensed under the terms of the MIT License. See [LICENSE](LICENSE) for details.
