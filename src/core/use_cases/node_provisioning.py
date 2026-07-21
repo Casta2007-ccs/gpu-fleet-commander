@@ -35,3 +35,7 @@ class NodeProvisioningService(INodeProvisioningUseCase):
 
         updated_node = node.update_heartbeat(datetime.now(UTC))
         await self._node_repository.save(updated_node)
+
+    async def list_nodes(self) -> list[Node]:
+        return await self._node_repository.list_all()
+

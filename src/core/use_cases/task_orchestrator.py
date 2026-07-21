@@ -71,3 +71,10 @@ class TaskOrchestratorService(ITaskOrchestratorUseCase):
         await self._task_repository.save(updated_task)
         await self._event_publisher.publish_task_status_changed(updated_task)
         return updated_task
+
+    async def get_task(self, task_id: str) -> Task:
+        task = await self._task_repository.find_by_id(task_id)
+        if task is None:
+            raise TaskNotFoundError(task_id)
+        return task
+

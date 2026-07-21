@@ -10,15 +10,28 @@
       "post": {
         "summary": "Register a worker node",
         "operationId": "register_node_v1_nodes_post",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access API Key for control plane authentication",
+              "title": "X-Api-Key"
+            },
+            "description": "Access API Key for control plane authentication"
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/NodeRegisterRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "201": {
@@ -27,6 +40,49 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/NodeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List all registered worker nodes",
+        "operationId": "list_nodes_v1_nodes_get",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access API Key for control plane authentication",
+              "title": "X-Api-Key"
+            },
+            "description": "Access API Key for control plane authentication"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NodeResponse"
+                  },
+                  "title": "Response List Nodes V1 Nodes Get"
                 }
               }
             }
@@ -57,6 +113,17 @@
               "type": "string",
               "title": "Node Id"
             }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access API Key for control plane authentication",
+              "title": "X-Api-Key"
+            },
+            "description": "Access API Key for control plane authentication"
           }
         ],
         "responses": {
@@ -80,15 +147,28 @@
       "post": {
         "summary": "Create a computational task",
         "operationId": "create_task_v1_tasks_post",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access API Key for control plane authentication",
+              "title": "X-Api-Key"
+            },
+            "description": "Access API Key for control plane authentication"
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/TaskCreateRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "201": {
@@ -129,15 +209,27 @@
             }
           },
           {
-            "name": "node_id",
-            "in": "query",
+            "name": "x-api-key",
+            "in": "header",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Node Id"
-            }
+              "description": "Access API Key for control plane authentication",
+              "title": "X-Api-Key"
+            },
+            "description": "Access API Key for control plane authentication"
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DispatchRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -177,12 +269,75 @@
             }
           },
           {
-            "name": "target_status",
-            "in": "query",
+            "name": "x-api-key",
+            "in": "header",
             "required": true,
             "schema": {
-              "$ref": "#/components/schemas/TaskStatus"
+              "type": "string",
+              "description": "Access API Key for control plane authentication",
+              "title": "X-Api-Key"
+            },
+            "description": "Access API Key for control plane authentication"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionRequest"
+              }
             }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tasks/{task_id}": {
+      "get": {
+        "summary": "Retrieve task details by ID",
+        "operationId": "get_task_v1_tasks__task_id__get",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access API Key for control plane authentication",
+              "title": "X-Api-Key"
+            },
+            "description": "Access API Key for control plane authentication"
           }
         ],
         "responses": {
@@ -222,6 +377,17 @@
               "type": "string",
               "title": "Node Id"
             }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access API Key for control plane authentication",
+              "title": "X-Api-Key"
+            },
+            "description": "Access API Key for control plane authentication"
           }
         ],
         "requestBody": {
@@ -241,6 +407,72 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/TelemetryResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "Retrieve recent telemetry metrics for a worker node",
+        "operationId": "get_node_telemetry_v1_nodes__node_id__telemetry_get",
+        "parameters": [
+          {
+            "name": "node_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Node Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Maximum number of metrics to return",
+              "default": 10,
+              "title": "Limit"
+            },
+            "description": "Maximum number of metrics to return"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access API Key for control plane authentication",
+              "title": "X-Api-Key"
+            },
+            "description": "Access API Key for control plane authentication"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TelemetryResponse"
+                  },
+                  "title": "Response Get Node Telemetry V1 Nodes  Node Id  Telemetry Get"
                 }
               }
             }
@@ -299,6 +531,23 @@
   },
   "components": {
     "schemas": {
+      "DispatchRequest": {
+        "properties": {
+          "node_id": {
+            "type": "string",
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Node Id",
+            "description": "Target node ID to dispatch the task to"
+          }
+        },
+        "type": "object",
+        "required": [
+          "node_id"
+        ],
+        "title": "DispatchRequest",
+        "description": "Request body for dispatching a task to a specific node."
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -532,6 +781,20 @@
           "temperature"
         ],
         "title": "TelemetryResponse"
+      },
+      "TransitionRequest": {
+        "properties": {
+          "target_status": {
+            "$ref": "#/components/schemas/TaskStatus",
+            "description": "Target status (COMPLETED or FAILED)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "target_status"
+        ],
+        "title": "TransitionRequest",
+        "description": "Request body for transitioning a task to a new status."
       },
       "ValidationError": {
         "properties": {

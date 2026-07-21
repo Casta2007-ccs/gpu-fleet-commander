@@ -26,3 +26,10 @@ class TelemetryIngestionService(ITelemetryIngestionUseCase):
         )
         await self._telemetry_repository.save_metric(metric)
         return metric
+
+    async def get_latest_telemetry(self, node_id: str, limit: int = 10) -> list[TelemetryMetric]:
+        node = await self._node_repository.find_by_id(node_id)
+        if node is None:
+            raise NodeNotFoundError(node_id)
+        return await self._telemetry_repository.get_latest_metrics_for_node(node_id, limit)
+

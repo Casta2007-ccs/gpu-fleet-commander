@@ -89,3 +89,13 @@ async def test_process_heartbeat_success(service: NodeProvisioningService, node_
 async def test_process_heartbeat_non_existent_node_raises_error(service: NodeProvisioningService):
     with pytest.raises(NodeNotFoundError):
         await service.process_heartbeat("non-existent-id")
+
+
+@pytest.mark.asyncio
+async def test_list_nodes_success(service: NodeProvisioningService):
+    await service.register_node("node-1", {"gpu": "RTX 4090"})
+    await service.register_node("node-2", {"gpu": "H100"})
+
+    nodes = await service.list_nodes()
+    assert len(nodes) == 2
+

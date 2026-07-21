@@ -110,6 +110,19 @@ async def process_heartbeat(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.message) from exc
 
 
+@router.get(
+    "/nodes",
+    response_model=list[NodeResponse],
+    summary="List all registered worker nodes",
+    dependencies=[Depends(verify_api_key)]
+)
+async def list_nodes(
+    service: NodeProvisioningService = Depends(get_node_service)
+) -> list[NodeResponse]:
+    nodes = await service.list_nodes()
+    return [NodeResponse.model_validate(node) for node in nodes]
+
+
 # --- Task Endpoints ---
 
 @router.post(
@@ -171,6 +184,23 @@ async def transition_task(
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=exc.message) from exc
 
 
+@router.get(
+    "/tasks/{task_id}",
+    response_model=TaskResponse,
+    summary="Retrieve task details by ID",
+    dependencies=[Depends(verify_api_key)]
+)
+async def get_task(
+    task_id: str,
+    service: TaskOrchestratorService = Depends(get_task_service)
+) -> TaskResponse:
+    try:
+        task = await service.get_task(task_id)
+        return TaskResponse.model_validate(task)
+    except TaskNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.message) from exc
+
+
 # --- Telemetry Endpoints ---
 
 @router.post(
@@ -200,6 +230,24 @@ async def ingest_telemetry(
     })
 
     return TelemetryResponse.model_validate(metric)
+
+
+@router.get(
+    "/nodes/{node_id}/telemetry",
+    response_model=list[TelemetryResponse],
+    summary="Retrieve recent telemetry metrics for a worker node",
+    dependencies=[Depends(verify_api_key)]
+)
+async def get_node_telemetry(
+    node_id: str,
+    limit: int = Query(10, ge=1, le=100, description="Maximum number of metrics to return"),
+    service: TelemetryIngestionService = Depends(get_telemetry_service)
+) -> list[TelemetryResponse]:
+    try:
+        metrics = await service.get_latest_telemetry(node_id, limit)
+        return [TelemetryResponse.model_validate(metric) for metric in metrics]
+    except NodeNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.message) from exc
 
 
 # --- WebSocket Endpoint ---

@@ -189,7 +189,8 @@ gpu-fleet-commander/
 │   ├── unit/                        # High-Speed Unit Tests (Pure Python Fakes)
 │   │   ├── fakes.py
 │   │   ├── test_node_provisioning.py
-│   │   └── test_task_orchestrator.py
+│   │   ├── test_task_orchestrator.py
+│   │   └── test_telemetry_ingestion.py
 │   └── integration/                 # Database Integration Tests (SQLite/SQLAlchemy)
 │       └── test_sql_repositories.py
 ├── docs/                            # Architectural Decisions & Diagrams
@@ -212,9 +213,12 @@ All REST endpoints map to strict Pydantic V2 DTO schemas and require `X-API-Key`
 |:---|:---|:---|:---|:---|:---|
 | **GET** | `/` | Serve HTML Fleet Dashboard | None | None | `200 OK` |
 | **GET** | `/health` | Healthcheck Endpoint | None | None | `200 OK` |
+| **GET** | `/v1/nodes` | List all registered worker nodes | None | `X-API-Key` | `200 OK`, `401 Unauthorized` |
 | **POST** | `/v1/nodes` | Register a new GPU worker node | `{"hostname": "str", "hardware_specs": {}}` | `X-API-Key` | `201 Created`, `401 Unauthorized`, `409 Conflict` |
 | **POST** | `/v1/nodes/{id}/heartbeat` | Record worker keepalive heartbeat | None | `X-API-Key` | `204 No Content`, `401 Unauthorized`, `404 Not Found` |
+| **GET** | `/v1/nodes/{id}/telemetry` | Retrieve recent node telemetry | Query: `?limit=10` | `X-API-Key` | `200 OK`, `401 Unauthorized`, `404 Not Found` |
 | **POST** | `/v1/nodes/{id}/telemetry` | Record hardware telemetry metrics | `{"cpu_usage": float, "gpu_usage": float, "temperature": float}` | `X-API-Key` | `201 Created`, `401 Unauthorized`, `404 Not Found` |
+| **GET** | `/v1/tasks/{id}` | Retrieve task details by ID | None | `X-API-Key` | `200 OK`, `401 Unauthorized`, `404 Not Found` |
 | **POST** | `/v1/tasks` | Create computational task (Idempotent) | `{"idempotency_key": "str", "payload": {}}` | `X-API-Key` | `201 Created`, `401 Unauthorized` |
 | **POST** | `/v1/tasks/{id}/dispatch` | Dispatch task to an online node | `{"node_id": "str"}` | `X-API-Key` | `200 OK`, `401 Unauthorized`, `404 Not Found`, `409 Conflict` |
 | **POST** | `/v1/tasks/{id}/transition` | Transition task state | `{"target_status": "COMPLETED"}` | `X-API-Key` | `200 OK`, `401 Unauthorized`, `404 Not Found`, `409 Conflict`, `422 Unprocessable` |

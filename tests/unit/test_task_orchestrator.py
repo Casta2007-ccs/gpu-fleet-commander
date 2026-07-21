@@ -209,3 +209,18 @@ async def test_transition_invalid_target_status_raises_error(
     with pytest.raises(InvalidTransitionTargetError):
         await service.transition_task(task.id, TaskStatus.RUNNING)
 
+
+@pytest.mark.asyncio
+async def test_get_task_success(service: TaskOrchestratorService):
+    created = await service.create_task("key-10", {"cmd": "test"})
+    retrieved = await service.get_task(created.id)
+    assert retrieved.id == created.id
+    assert retrieved.idempotency_key == "key-10"
+
+
+@pytest.mark.asyncio
+async def test_get_task_not_found_raises_error(service: TaskOrchestratorService):
+    with pytest.raises(TaskNotFoundError):
+        await service.get_task("non-existent-task-id")
+
+

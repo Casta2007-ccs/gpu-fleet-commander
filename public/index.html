@@ -193,6 +193,15 @@
         const gpuChart = new Chart(document.getElementById("gpuChart").getContext("2d"), createChartConfig("GPU Usage", "#3b82f6", 0, 100, "%"));
         const tempChart = new Chart(document.getElementById("tempChart").getContext("2d"), createChartConfig("Core Temperature", "#ef4444", 20, 100, "°C"));
 
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
         // Helper: Update Dropdown Node Selector list
         function updateNodeSelector(nodeId) {
             if (!nodeDataStore[nodeId]) {
@@ -297,9 +306,10 @@
                     summaryMetricsCount.textContent = metricCount;
 
                     // Log activity in logging terminal
+                    const safeNodeId = escapeHtml(node_id.substring(0, 8));
                     const logEntry = document.createElement("div");
                     logEntry.className = "border-l border-nvgreen/40 pl-2 py-0.5";
-                    logEntry.innerHTML = `<span class="text-nvgreen">[${timeLabel}]</span> Node <span class="text-blue-400 font-bold">${node_id.substring(0, 8)}</span> -> CPU: ${cpu_usage}%, GPU: ${gpu_usage}%, Temp: ${temperature}°C`;
+                    logEntry.innerHTML = `<span class="text-nvgreen">[${timeLabel}]</span> Node <span class="text-blue-400 font-bold">${safeNodeId}</span> -> CPU: ${cpu_usage}%, GPU: ${gpu_usage}%, Temp: ${temperature}°C`;
                     logsContainer.insertBefore(logEntry, logsContainer.firstChild);
 
                     // Truncate logs to avoid DOM overload

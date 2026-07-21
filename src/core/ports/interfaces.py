@@ -40,6 +40,14 @@ class INodeProvisioningUseCase(ABC):
             NodeNotFoundError: If the node does not exist.
         """
 
+    @abstractmethod
+    async def list_nodes(self) -> list[Node]:
+        """List all registered worker nodes in the fleet.
+
+        Returns:
+            A list of all Node domain entities.
+        """
+
 
 class ITaskOrchestratorUseCase(ABC):
     """Port defining operations for managing and dispatching tasks to worker nodes.
@@ -93,6 +101,20 @@ class ITaskOrchestratorUseCase(ABC):
             InvalidTaskStateException: If the transition is not allowed.
         """
 
+    @abstractmethod
+    async def get_task(self, task_id: str) -> Task:
+        """Retrieve task details by ID.
+
+        Args:
+            task_id: The unique identifier of the task.
+
+        Returns:
+            The Task domain entity.
+
+        Raises:
+            TaskNotFoundError: If the task does not exist.
+        """
+
 
 class ITelemetryIngestionUseCase(ABC):
     """Port defining operations for ingesting periodic metrics from worker nodes.
@@ -115,6 +137,21 @@ class ITelemetryIngestionUseCase(ABC):
 
         Raises:
             NodeNotFoundError: If the reporting node is not registered.
+        """
+
+    @abstractmethod
+    async def get_latest_telemetry(self, node_id: str, limit: int = 10) -> list[TelemetryMetric]:
+        """Retrieve recent telemetry metric data points for a node.
+
+        Args:
+            node_id: The identifier of the node.
+            limit: Maximum number of data points to return.
+
+        Returns:
+            A list of TelemetryMetric domain entities.
+
+        Raises:
+            NodeNotFoundError: If the node does not exist.
         """
 
 
