@@ -4,262 +4,289 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python: 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
 [![FastAPI: 0.111](https://img.shields.io/badge/FastAPI-0.111-009688.svg)](https://fastapi.tiangolo.com/)
+[![Pydantic: v2](https://img.shields.io/badge/Pydantic-v2-E92063.svg)](https://docs.pydantic.dev/)
 [![SQLAlchemy: 2.0](https://img.shields.io/badge/SQLAlchemy-2.0-red.svg)](https://www.sqlalchemy.org/)
+[![Docker: Ready](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
 [![Environment: Flox](https://img.shields.io/badge/environment-Flox-orange.svg)](https://flox.dev/)
 [![Architecture: Hexagonal](https://img.shields.io/badge/architecture-Hexagonal-green.svg)](https://en.wikipedia.org/wiki/Hexagonal_architecture_(software))
 [![Code Style: Ruff](https://img.shields.io/badge/code%20style-Ruff-000000.svg)](https://github.com/astral-sh/ruff)
+[![Type Checker: Mypy](https://img.shields.io/badge/type%20checker-Mypy-blue.svg)](https://mypy-lang.org/)
 
-**GPU Fleet Commander** is a production-grade, high-performance Control Plane designed for orchestrating decentralized GPU computing infrastructure (such as server clusters or NVIDIA Jetson edge systems). It manages real-time worker node registrations, keepalive heartbeats, and idempotent computational task dispatching, streaming instant hardware metrics via WebSockets to a centralized control panel.
+**GPU Fleet Commander** is an enterprise-grade, high-performance **Control Plane** designed for orchestrating decentralized GPU computing infrastructure at scale (ranging from cloud server clusters to edge NVIDIA Jetson nodes). It handles real-time worker node registrations, keepalive heartbeats, idempotent computational task dispatching, and live telemetry streaming via WebSockets to a centralized control panel.
 
-In distributed computing, managing physical GPU hardware at scale requires minimal network overhead and bulletproof state isolation. This project solves that by decoupling the core domain orchestration from database operations and network frameworks, serving as a robust blueprint for enterprise-level resource dispatchers.
+Engineered around **Pure Hexagonal Architecture (Ports and Adapters)**, the core domain logic remains 100% decoupled from web frameworks and database ORMs. This ensures zero framework leakage, deterministic testability with in-memory domain doubles, and multi-cloud infrastructure flexibility.
 
 ---
 
-## 📸 Visual Previews
+## 📸 System Overview & Visual Previews
 
 ### Real-Time Fleet Telemetry Dashboard
 ![Dashboard Preview](docs/dashboard.png)
-*NVIDIA-themed control panel with live-drawn CPU, GPU, and core temperature charts powered by Chart.js and WebSockets.*
+*NVIDIA-themed control panel with live-drawn CPU, GPU, and core temperature telemetry charts powered by Chart.js and WebSockets.*
 
-### Concurrent GPU Node Simulation
+### Concurrent GPU Node Worker Simulator
 ![Simulator Logs](docs/simulator_logs.png)
-*Simulated hardware worker nodes reporting metrics and keepalives with automatic exponential backoff reconnection recovery.*
+*Simulated hardware worker nodes reporting telemetry metrics and heartbeats with automatic exponential backoff and connection recovery.*
 
 ---
 
-## 💡 Why This Project Stands Out (Technical Edge)
+## 💡 Key Architectural Highlights & Engineering Excellence
 
-This control plane is built to showcase advanced backend engineering standards:
-
-*   **Pure Hexagonal Architecture (Ports and Adapters)**: Business rules are isolated from frameworks. The core domain does not import database or HTTP libraries. You can swap PostgreSQL for InfluxDB or FastAPI for gRPC by rewriting outbound/inbound adapters, **without changing a single line of business logic**.
-*   **100% Asynchronous I/O Pipeline**: Built end-to-end on non-blocking async execution (`async/await`) using FastAPI and SQLAlchemy 2.0's async engine over the `asyncpg` PostgreSQL driver. This prevents thread starvation during high-frequency telemetry ingestion.
-*   **Immutable Domain State Transitions**: To guarantee safety against race conditions in concurrent execution loops, domain models (`Node`, `Task`) are declared as `@dataclass(frozen=True)`. Mutations are performed safely via functional copying (`replace()`).
-*   **Declarative Development Environment (Flox / Nix)**: Eliminates "works on my machine" issues. All system-level dependencies (Python 3.12, PostgreSQL 16, Redis, `uv`) are declared in `.flox/env/manifest.toml`. The entire workspace initializes inside an isolated sandbox with a single command.
-*   **Built-in Task Idempotency**: Concurrency-safe execution logic prevents duplicate task scheduling. If a client submits a duplicated run request, the engine returns the existing record based on its unique `idempotency_key` instead of spawning duplicate tasks.
+* 🛡️ **Pure Hexagonal Architecture (Ports & Adapters)**: Strict inward dependency rules. The core domain layer (`src/core`) contains zero imports from FastAPI, SQLAlchemy, HTTPX, or Pydantic. Domain logic can be re-used across CLI tools, gRPC services, or alternative web engines without modifications.
+* ⚡ **100% Asynchronous Non-Blocking I/O**: End-to-end async execution model using `async/await`, FastAPI, and SQLAlchemy 2.0 async engine backed by `asyncpg` for PostgreSQL and `aiosqlite` for test environments.
+* 🔐 **Control Plane Security & Token Auth**: All node registrations, keepalives, telemetry ingestions, and task mutation endpoints require `X-API-Key` authentication headers. WebSockets connections are validated via `?api_key=` query tokens prior to protocol handshake acceptance.
+* 🔄 **Resilient Redis Pub/Sub Telemetry Broker**: Supports multi-process / multi-worker horizontal scaling. Ingested metrics are published to a Redis Pub/Sub channel (`telemetry_channel`) with automatic background reconnection loops. Fallbacks gracefully to local in-memory broadcast if Redis is disabled.
+* 🎯 **Idempotent Task Dispatching Engine**: Eliminates duplicate task processing in distributed loops. Duplicate task creation requests return existing task records based on client-provided `idempotency_key` tokens.
+* 🔒 **Immutable Domain Entities**: Core models (`Node`, `Task`, `TelemetryMetric`) are frozen dataclasses (`@dataclass(frozen=True)`). State mutations occur safely via explicit copy-on-write transitions (`dataclasses.replace`), preventing race conditions.
+* 🐳 **Production Containerization**: Ships with multi-stage `Dockerfile` (non-root `appuser` security posture), `.dockerignore` optimization, and `docker-compose.yml` with healthchecks (`python -c urllib`) and cascading dependency ordering (`service_healthy`).
+* 🧪 **Comprehensive Double Test Suite (Unit + Integration)**: 100% test pass rate combining fast domain unit tests (using pure Python in-memory fakes) and database integration tests (using `aiosqlite` in-memory SQL execution).
 
 ---
 
-## 🎮 End-to-End Simulation Quickstart
+## 🚀 Quickstart Guide
 
-Observe the entire system working with live telemetry streaming in less than 60 seconds:
+You can run the entire system (Database, Redis Broker, Control Plane API, Dashboard, and Simulated GPU Workers) in under 60 seconds using Docker Compose or Flox.
 
-### 1. Install Flox (Package & Environment Manager)
-Ensure you have Flox installed. Visit the [Flox Installation Guide](https://flox.dev/docs/install-flox/install/) for instructions.
+### Option A: Docker & Docker Compose (Recommended for Instant Setup)
 
-### 2. Clone the Repository and Start the Environment
+Ensure you have [Docker](https://www.docker.com/) installed.
+
 ```bash
+# Clone the repository
+git clone https://github.com/Casta2007-ccs/gpu-fleet-commander.git
+cd gpu-fleet-commander
+
+# Launch PostgreSQL, Redis, API, and 2 Worker Node Simulators
+docker compose up --build
+```
+
+Access the **Fleet Control Panel Dashboard** at: `http://localhost:8000/`
+
+---
+
+### Option B: Flox / Nix Environment (Declarative Local Development)
+
+[Flox](https://flox.dev/) provides a reproducible development environment with pre-configured PostgreSQL 16, Redis, and Python 3.12.
+
+```bash
+# 1. Clone and enter the environment
 git clone https://github.com/Casta2007-ccs/gpu-fleet-commander.git
 cd gpu-fleet-commander
 flox activate --start-services
-```
-*This downloads Python 3.12, Postgres 16, sets up your virtual environment via `uv`, and boots background databases.*
 
-### 3. Initialize and Create the Database (Inside Flox env)
-Run these commands to prepare your local PostgreSQL server:
-```bash
-make init      # Initialize local cluster database files
-make start     # Start PostgreSQL service in background
-make create-db # Create the 'gpu_fleet' database schema
-```
+# 2. Initialize local PostgreSQL cluster and create database
+make init
+make start
+make create-db
 
-### 4. Run the Control Plane API
-Launch the FastAPI development server:
-```bash
+# 3. Start the Control Plane API
 make run
 ```
-*The API is now running on `http://localhost:8000/`. You can open this address in your browser to view the **NVIDIA-themed Fleet Dashboard**.*
 
-### 5. Start Simulated GPU Worker Nodes
-Open one or more new terminal sessions, activate the flox environment, and execute the worker simulator:
+In a separate terminal window, launch simulated worker nodes:
 ```bash
-# Registers a simulated worker node (e.g. RTX 4090) and streams metrics every 3s
 python cmd/worker/main.py
 ```
-*(Tip: Run multiple instances in separate terminal windows to simulate a large distributed cluster).*
-
-### 6. Monitor in Real-Time
-Open **`http://localhost:8000/`** to watch the worker nodes connect, appear in the active node selector, and stream CPU, GPU, and Temperature charts via WebSockets.
 
 ---
 
 ## 🏗️ Architectural Blueprint
 
-The codebase enforces a strict unidirectional dependency flow pointing **inward** toward the core domain model:
+### Unidirectional Dependency Flow
 
 ```mermaid
 graph TD
     %% Inbound Adapters (Driving)
-    subgraph Inbound Adapters [Inbound Adapters / Driving]
-        API[FastAPI REST API]
-        WS[FastAPI WebSockets]
-        CLI[Worker CLI / Node Simulator]
+    subgraph Inbound [Inbound Adapters / Driving]
+        API[FastAPI REST API Router]
+        WS[FastAPI WebSockets Manager]
+        Sim[GPU Worker Node Simulator Client]
     end
 
-    %% Ports
-    subgraph Ports [Ports / Contracts]
-        IPorts[Inbound Ports / Use Cases]
-        OPorts[Outbound Ports / SPIs]
+    %% Ports Layer
+    subgraph Ports [Ports / Interfaces]
+        IPorts[Inbound Ports / Use Case Interfaces]
+        OPorts[Outbound Ports / Repository & Publisher Interfaces]
     end
 
-    %% Core Domain
-    subgraph Core Domain [Core Domain & Business Logic]
+    %% Core Domain Layer
+    subgraph Core [Core Domain & Business Logic - Pure Python]
         Services[Use Case Services]
-        Entities[Domain Entities / Node, Task, TelemetryMetric]
-        Exceptions[Domain Exceptions]
+        Entities[Immutable Domain Entities: Node, Task, TelemetryMetric]
+        Exceptions[Domain Exceptions Hierarchy]
     end
 
     %% Outbound Adapters (Driven)
-    subgraph Outbound Adapters [Outbound Adapters / Driven]
-        DB[PostgreSQL DB Adapter]
-        TS[SQLAlchemy Async Engine]
-        Events[Logging / Event Publisher]
+    subgraph Outbound [Outbound Adapters / Driven]
+        DB[SQLAsync Repositories]
+        ORM[SQLAlchemy 2.0 ORM Models]
+        Redis[Redis Pub/Sub Event Broker]
+        Log[Logging Event Publisher]
     end
 
-    %% Dependency Arrows
+    %% Dependencies
     API --> IPorts
     WS --> IPorts
-    CLI --> IPorts
+    Sim --> API
     
     IPorts --> Services
     Services --> Entities
     Services --> Exceptions
-    
     Services --> OPorts
     
     OPorts --> DB
-    OPorts --> TS
-    OPorts --> Events
+    DB --> ORM
+    OPorts --> Redis
+    OPorts --> Log
 
     %% Styling
-    style Core Domain fill:#76b900,stroke:#5c8f00,stroke-width:2px,color:#fff
+    style Core fill:#76b900,stroke:#5c8f00,stroke-width:2px,color:#fff
     style Ports fill:#0277bd,stroke:#01579b,stroke-width:2px,color:#fff
-    style Inbound Adapters fill:#37474f,stroke:#263238,stroke-width:2px,color:#fff
-    style Outbound Adapters fill:#37474f,stroke:#263238,stroke-width:2px,color:#fff
+    style Inbound fill:#37474f,stroke:#263238,stroke-width:2px,color:#fff
+    style Outbound fill:#37474f,stroke:#263238,stroke-width:2px,color:#fff
 ```
 
-### Repository Structure
+### Complete Codebase Layout
+
 ```text
-.
+gpu-fleet-commander/
 ├── .github/
-│   ├── workflows/
-│   │   └── ci.yml              # GitHub Actions CI pipeline
-│   └── PULL_REQUEST_TEMPLATE.md # Pull Request template and review checklist
-├── .flox/                      # Declarative Nix-based virtual environments
+│   └── workflows/
+│       └── ci.yml                   # CI pipeline (Linting, Compilation, Pytest)
 ├── cmd/
 │   ├── api/
-│   │   └── main.py             # API entrypoint & FastAPI setup
+│   │   └── main.py                  # API Entrypoint, Lifespan, CORS & Exception Handlers
 │   └── worker/
-│       └── main.py             # Independent GPU node simulator client (HTTPX)
+│       └── main.py                  # Async GPU Worker Client Simulator (HTTPX)
 ├── public/
-│   └── index.html              # Telemetry dashboard webpage (Tailwind + Chart.js)
+│   └── index.html                   # Live Web Dashboard (Tailwind CSS + Chart.js + WS)
 ├── src/
-│   ├── core/                   # 🛑 Pure Domain - NO FRAMEWORKS
-│   │   ├── domain/             # Domain entities & Custom Exceptions
-│   │   ├── ports/              # Driving & Driven interfaces (Abstract Base Classes)
-│   │   └── use_cases/          # Business logic implementation services
-│   ├── adapters/               # 🔌 Infrastructure & Adapters (Web, DB, WebSockets)
-│   │   ├── inbound/            # API schemas, WebSocket manager, API routers
-│   │   └── outbound/           # Async Postgres repositories & ORM models
-│   └── config/                 # Dependency injection configurations
+│   ├── __init__.py
+│   ├── core/                        # 🛑 Pure Core Domain (Zero Framework Dependencies)
+│   │   ├── __init__.py
+│   │   ├── domain/                  # Frozen Entities & Custom Domain Exceptions
+│   │   │   ├── entities.py
+│   │   │   └── exceptions.py
+│   │   ├── ports/                   # Abstract Driving & Driven Interfaces
+│   │   │   └── interfaces.py
+│   │   └── use_cases/               # Core Orchestration Services
+│   │       ├── node_provisioning.py
+│   │       ├── task_orchestrator.py
+│   │       └── telemetry_ingestion.py
+│   └── adapters/                    # 🔌 Infrastructure & Framework Adapters
+│       ├── __init__.py
+│       ├── inbound/                 # Routers, Pydantic V2 Schemas & WebSocket Manager
+│       │   ├── api_schemas.py
+│       │   ├── routers.py
+│       │   └── websocket_manager.py
+│       └── outbound/                # Async Repositories, ORM Models & Event Publishers
+│           ├── database.py
+│           ├── event_publisher.py
+│           ├── orm_models.py
+│           └── sql_repositories.py
 ├── tests/
-│   └── unit/                   # High-speed unit tests (uses in-memory Fakes)
-├── docs/
-│   ├── adr/                    # Architectural Decision Records (ADRs 0001-0003)
-│   └── DEVELOPMENT_AND_ARCHITECTURE.md # Exhaustive design explanation
-├── Makefile                    # Unified developer target runner
-├── pyproject.toml              # Ruff and Pytest settings
-└── requirements.txt            # Poetry dependencies export
+│   ├── __init__.py
+│   ├── unit/                        # High-Speed Unit Tests (Pure Python Fakes)
+│   │   ├── fakes.py
+│   │   ├── test_node_provisioning.py
+│   │   └── test_task_orchestrator.py
+│   └── integration/                 # Database Integration Tests (SQLite/SQLAlchemy)
+│       └── test_sql_repositories.py
+├── docs/                            # Architectural Decisions & Diagrams
+├── .dockerignore                    # Production Docker build exclusions
+├── Dockerfile                       # Multi-stage non-root runtime container
+├── docker-compose.yml               # Multi-service stack composition
+├── Makefile                         # Cross-platform developer task runner
+├── pyproject.toml                   # Ruff, Mypy & Pytest configuration
+├── requirements.txt                 # Production dependencies
+└── requirements-dev.txt             # Development & testing dependencies
 ```
 
 ---
 
-## 🛠️ API & WebSockets Reference
+## 📡 API & WebSockets Reference
 
-All REST endpoints map to strict Pydantic DTO schemas. Domain errors are automatically translated to HTTP codes.
+All REST endpoints map to strict Pydantic V2 DTO schemas and require `X-API-Key` authentication headers.
 
-| Method | Endpoint | Description | Payload | Success | Errors |
+| Method | Endpoint | Description | Request Body | Auth Header | Status Codes |
 |:---|:---|:---|:---|:---|:---|
-| **GET** | `/` | Serve HTML Web Dashboard | None | `200 OK` | None |
-| **GET** | `/health` | API Health check | None | `200 OK` | None |
-| **POST** | `/v1/nodes` | Register a new worker node | `{"hostname": "str", "hardware_specs": {}}` | `201 Created` | `409 Conflict` |
-| **POST** | `/v1/nodes/{id}/heartbeat` | Ingest node heartbeat keepalive | None | `204 No Content` | `404 Not Found` |
-| **POST** | `/v1/nodes/{id}/telemetry` | Ingest node metric payload | `{"cpu_usage": float, "gpu_usage": float, "temperature": float}` | `201 Created` | `404 Not Found` |
-| **POST** | `/v1/tasks` | Create a task (Idempotent) | `{"idempotency_key": "str", "payload": {}}` | `201 Created` | `400 Bad Request` |
-| **POST** | `/v1/tasks/{id}/dispatch` | Assign task to an online node | Query: `?node_id=str` | `200 OK` | `404/409 Conflict` |
-| **POST** | `/v1/tasks/{id}/transition` | Transition task execution status | Query: `?target_status=str` | `200 OK` | `404/409 Conflict` |
-| **WS** | `/v1/ws/telemetry` | Real-time telemetry broadcast feed | WebSocket Connection | `101 Switching` | None |
+| **GET** | `/` | Serve HTML Fleet Dashboard | None | None | `200 OK` |
+| **GET** | `/health` | Healthcheck Endpoint | None | None | `200 OK` |
+| **POST** | `/v1/nodes` | Register a new GPU worker node | `{"hostname": "str", "hardware_specs": {}}` | `X-API-Key` | `201 Created`, `401 Unauthorized`, `409 Conflict` |
+| **POST** | `/v1/nodes/{id}/heartbeat` | Record worker keepalive heartbeat | None | `X-API-Key` | `204 No Content`, `401 Unauthorized`, `404 Not Found` |
+| **POST** | `/v1/nodes/{id}/telemetry` | Record hardware telemetry metrics | `{"cpu_usage": float, "gpu_usage": float, "temperature": float}` | `X-API-Key` | `201 Created`, `401 Unauthorized`, `404 Not Found` |
+| **POST** | `/v1/tasks` | Create computational task (Idempotent) | `{"idempotency_key": "str", "payload": {}}` | `X-API-Key` | `201 Created`, `401 Unauthorized` |
+| **POST** | `/v1/tasks/{id}/dispatch` | Dispatch task to an online node | `{"node_id": "str"}` | `X-API-Key` | `200 OK`, `401 Unauthorized`, `404 Not Found`, `409 Conflict` |
+| **POST** | `/v1/tasks/{id}/transition` | Transition task state | `{"target_status": "COMPLETED"}` | `X-API-Key` | `200 OK`, `401 Unauthorized`, `404 Not Found`, `409 Conflict`, `422 Unprocessable` |
+| **WS** | `/v1/ws/telemetry` | Real-time WebSocket telemetry stream | Query param: `?api_key=token` | Query Token | `101 Switching Protocols`, `1008 Policy Violation` |
 
 ---
 
-## ⚡ Developer Task Runner (Makefile)
+## 🧪 Testing & Quality Assurance
 
-The `Makefile` encapsulates system tasks, making it easy to run automated pipelines:
+The repository maintains strict quality control with 100% test pass rates and static analysis compliance.
 
-| Target | Command | Description |
-|:---|:---|:---|
-| `make install` | `uv pip install -r requirements.txt` | Install Python dependencies |
-| `make init` | `initdb -D .flox/cache/pgdata` | Initialize PostgreSQL storage cluster |
-| `make start` | `pg_ctl -D .flox/cache/pgdata start` | Start PostgreSQL in background |
-| `make stop` | `pg_ctl -D .flox/cache/pgdata stop` | Stop background PostgreSQL services |
-| `make create-db`| `createdb ... gpu_fleet` | Create development database schemas |
-| `make run` | `uvicorn cmd.api.main:app ...` | Start FastAPI server on `localhost:8000` |
-| `make test` | `python -m pytest tests/unit/` | Execute high-speed unit tests |
-| `make format` | `ruff format src/ cmd/ tests/` | Auto-format codebase using Ruff |
-| `make lint` | `ruff check ... && mypy ...` | Execute linters & mypy static typings |
-| `make clean` | `rm -rf .pytest_cache ...` | Clean cache and compiled Python files |
+### Running Test Suites
 
----
+```bash
+# Execute unit & database integration test suites
+python -m pytest
 
-## 🛠️ Next Steps: Future Production Roadmap
+# Run tests with verbose output
+python -m pytest -v
+```
 
-To transition this MVP control plane into a highly resilient, enterprise-grade production ecosystem, the following additions are slated for future development:
+### Static Analysis & Type Checking
 
-### 1. Lightweight API Security (Authentication Layer)
-*   **Goal**: Secure node registration and metrics ingestion endpoints. Currently, any unauthorized client can inject fake telemetry data.
-*   **Plan**: Implement **JWT authentication** or a lightweight API-Key header validation (`X-API-Key`) checking tokens stored in environment variables, ensuring only authenticated GPU nodes can communicate with the Control Plane.
+```bash
+# Code style and linting (Ruff)
+python -m ruff check src/ cmd/ tests/
 
-### 2. Ecosytem Containerization (Docker & Compose)
-*   **Goal**: Standardize execution environments for cloud deployments (Kubernetes, AWS ECS) outside of Flox.
-*   **Plan**: 
-    - Author a multi-stage `Dockerfile` optimized for minimal size to build the FastAPI API and the Worker client.
-    - Write a `docker-compose.yml` file to spin up PostgreSQL, the Control Plane API, and three simulated GPU workers with a single command (`docker-compose up`).
+# Strict type checking (Mypy)
+python -m mypy --ignore-missing-imports --explicit-package-bases src/ cmd/ tests/
+```
 
-### 3. Distributed Event Pub/Sub Integration (Redis / Kafka)
-*   **Goal**: Scale the WebSockets transmission layer. Currently, events are broadcast in-memory. If the API scales horizontally behind a load balancer, workers connected to replica instance A won't receive telemetry published to instance B.
-*   **Plan**: Replace `LoggingEventPublisher` with a **Redis Pub/Sub** broker. API telemetry ingestions will publish to a Redis channel, and all horizontal WebSocket servers will subscribe to this channel, enabling scaling without memory sync issues.
+### Cross-Platform Task Automation (Makefile)
+
+```bash
+make test       # Execute test suite via pytest
+make lint       # Run Ruff and Mypy checks
+make format     # Auto-format codebase with Ruff
+make clean      # Cross-platform cleanup of cache & build artifacts
+```
 
 ---
 
-## 🧠 Lessons Learned & Engineering Challenges (Self-Retrospective)
+## 🛡️ Technical Retrospective: Engineering Challenges & Solved Trade-offs
 
-Every high-quality project is a result of navigating technical challenges. Here is a brief look at the architectural hurdles encountered during development and how they were solved:
+Building a production-ready control plane surfaced complex software engineering trade-offs. Here is how key challenges were systematically analyzed and resolved:
 
-### 1. Python Namespace Collision with `cmd/` Folder Structure
-*   **The Issue**: Following Go-like project layouts, the application entrypoints were structured inside `cmd/api/main.py` and `cmd/worker/main.py`. However, Python includes a built-in standard library package named `cmd`. Running scripts or doing imports like `from cmd.api.main import app` triggered `ModuleNotFoundError: No module named 'cmd.api'; 'cmd' is not a package` conflicts as Python prioritized the standard library over local directory paths.
-*   **The Resolution**: Added absolute search paths (`sys.path`) at the top of standalone tools and invoked running modules using direct paths/virtual env interpreters (`python -m cmd.api.main`) to override default namespace resolution.
+### 1. Endpoint Security Lockdown & WebSocket Handshake Order
+* **Challenge**: Initially, task dispatching endpoints were unauthenticated, allowing arbitrary clients to manipulate task states. Additionally, attempting to close an unauthenticated WebSocket connection without accepting it first produced `RuntimeError: Unexpected ASGI message 'websocket.close'`.
+* **Resolution**: Enforced `verify_api_key` dependency verification across all REST endpoints. For WebSockets, the endpoint explicitly invokes `await websocket.accept()` prior to checking `api_key == API_KEY`, gracefully closing with `WS_1008_POLICY_VIOLATION` if authentication fails.
 
-### 2. SQLAlchemy 2.0 `MissingGreenlet` context leakage
-*   **The Issue**: When designing the asynchronous outbound repositories, trying to evaluate lazy-loaded relationships or returning raw ORM database schemas directly to the HTTP routers caused `sqlalchemy.exc.MissingGreenlet: Instance <Model> is not fully initialized` exceptions. This was because the connection session was closed or executed outside of the greenlet-context.
-*   **The Resolution**: Enforced strict Hexagonal boundaries. Outbound adapters now map ORM models back to pure immutable domain entities *before* returning them, ensuring all properties are loaded while the async transaction context is open.
+### 2. Hexagonal Domain Boundary Protection vs. Framework Exception Leaks
+* **Challenge**: Domain services raise custom exceptions (`NodeNotFoundError`, `InvalidTransitionTargetError`). Unhandled domain errors in FastAPI endpoints resulted in generic `500 Internal Server Error` responses, leaking implementation details while failing to supply meaningful HTTP status codes.
+* **Resolution**: Implemented global exception handlers in `cmd/api/main.py` and wrapped endpoint handlers in `src/adapters/inbound/routers.py` with explicit try/except blocks converting domain exceptions directly into structured HTTP status responses (`404`, `409`, `422`).
 
-### 3. Database Integrity Errors vs. Domain Idempotency
-*   **The Issue**: When simulated worker nodes sent simultaneous task execution requests (simulating high network latency and immediate retries), the idempotency verification check had a race condition. Two threads could verify `find_by_idempotency_key` simultaneously, find no records, and attempt to write, leading to PostgreSQL unique constraint violations (`IntegrityError`).
-*   **The Resolution**: Captured database-specific `IntegrityError` exceptions inside the async outbound repository adapters, converting them dynamically into domain-specific exceptions (`DuplicateTaskError`) to return the existing task gracefully without failing.
+### 3. Static Type Safety with Pydantic V2 and Mypy
+* **Challenge**: Returning raw domain dataclass instances (`Node`, `Task`) from FastAPI endpoints relied on runtime ORM conversion (`from_attributes=True`), causing Mypy static type checkers to flag `Incompatible return value type (got Node, expected NodeResponse)`.
+* **Resolution**: Updated endpoints to explicitly construct DTO responses using Pydantic V2's `ModelResponse.model_validate(domain_entity)`. This guarantees 100% static type safety under Mypy while keeping DTO conversion explicit.
 
-### 4. Parallel Test Deadlocks with SQLite In-Memory
-*   **The Issue**: During initial testing configurations, we attempted to write integration tests using an in-memory SQLite database (`sqlite+aiosqlite`) to keep tests fast. However, when executing async tests in parallel using `pytest-xdist`, SQLite's lock-table limitations caused random transaction failures (`database is locked`) when multiple test coroutines attempted concurrent writes.
-*   **The Resolution**: Pivoted testing strategies. We isolated core unit tests by creating clean in-memory double repositories (`tests/unit/fakes.py`) utilizing simple dictionary operations, while reserving PostgreSQL inside Flox strictly for sequential integration testing. This approach achieved parallelizable, sub-100ms unit execution times.
+### 4. Database Foreign Key Integrity Constraints
+* **Challenge**: `TaskORM` and `TelemetryMetricORM` stored string `node_id` fields without formal database constraints, allowing orphan records to exist if node records were deleted or corrupted.
+* **Resolution**: Added `ForeignKey("nodes.id")` metadata definitions to `orm_models.py`, enforcing strict relational integrity at the database engine level.
 
-### 5. PostgreSQL Connection Pool Exhaustion during Telemetry Spikes
-*   **The Issue**: During load testing with 50+ concurrent simulated worker nodes emitting metrics simultaneously via `asyncio.gather`, the API would occasionally hang and time out. This was due to PostgreSQL connection pool exhaustion: the API handlers were holding onto connections too long, causing incoming requests to block waiting for a slot.
-*   **The Resolution**: Tuned connection configurations. We optimized the database pooling strategy in `adapters/outbound/database.py` by enabling `pool_pre_ping=True` and adjusting the parameters (`pool_size=20`, `max_overflow=10`, `pool_timeout=30.0`). Additionally, we wrapped sessions inside strict context managers that release connections immediately back to the pool as soon as the query transaction completes.
+### 5. Multi-Worker Telemetry Resiliency & Pub/Sub Reconnection Loop
+* **Challenge**: Background Redis subscriber tasks would die permanently if a temporary network blip interrupted the connection, causing all real-time telemetry streaming to stop for the lifetime of the process.
+* **Resolution**: Extracted `listen_redis` into a standalone task wrapper with an exponential retry loop inside `cmd/api/main.py`, automatically re-subscribing to `telemetry_channel` upon reconnect.
 
-### 6. Timezone Offset Drift in Telemetry Analytics
-*   **The Issue**: Simulated worker nodes running on edge systems in different local timezones sent timestamps without explicit offset data (naive datetimes). When stored in PostgreSQL, the database interpreted them as local server time, creating offset drifts up to 8 hours. This caused the live dashboard charts to display metrics out of order or flatline.
-*   **The Resolution**: Standardized all interfaces. We implemented custom validation logic inside Pydantic schemas and core domain entities to automatically parse and enforce timezone-aware UTC format (`datetime.now(timezone.utc)`), ensuring all metrics are aligned globally.
+### 6. Container Security & Dependency Isolation
+* **Challenge**: Production containers built from basic Dockerfiles ran as `root`, installed test-only packages (`pytest`), and included unneeded dev files (`.git`, `__pycache__`).
+* **Resolution**: Authored a `.dockerignore` file, split dependencies into `requirements.txt` and `requirements-dev.txt`, and updated `Dockerfile` to create and execute under a non-root `appuser` (UID 1000).
 
 ---
 
 ## 📄 License
 
-This project is licensed under the terms of the MIT License. See [LICENSE](LICENSE) for details.
+This project is licensed under the terms of the **MIT License**. See the [LICENSE](LICENSE) file for details.
