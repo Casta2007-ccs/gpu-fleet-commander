@@ -70,14 +70,40 @@ async def listen_redis(redis_url: str) -> None:
                     pass
 
 
+async def node_watchdog_loop(interval_seconds: float = 10.0, timeout_seconds: int = 30) -> None:
+    """Background task to periodically audit node heartbeats and mark stale nodes OFFLINE."""
+    from src.adapters.outbound.database import AsyncSessionMaker
+    from src.adapters.outbound.event_publisher import LoggingEventPublisher
+    from src.adapters.outbound.sql_repositories import SqlAsyncNodeRepository
+    from src.core.use_cases.node_provisioning import NodeProvisioningService
+
+    while True:
+        try:
+            await asyncio.sleep(interval_seconds)
+            async with AsyncSessionMaker() as session:
+                repo = SqlAsyncNodeRepository(session)
+                service = NodeProvisioningService(repo, LoggingEventPublisher())
+                stale_count = await service.check_stale_nodes(timeout_seconds=timeout_seconds)
+                if stale_count > 0:
+                    await session.commit()
+                    logger.warning(f"Watchdog: Marked {stale_count} node(s) as OFFLINE due to missed heartbeats.")
+        except asyncio.CancelledError:
+            logger.info("Node watchdog loop cancelled.")
+            break
+        except Exception as e:
+            logger.error(f"Error in Node Watchdog loop: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Manages application startup and shutdown events, subscribing to Redis Pub/Sub if configured."""
+    """Manages application startup and shutdown events, launching background listeners and watchdog services."""
     redis_url = os.getenv("REDIS_URL")
     listener_task = None
 
     if redis_url:
         listener_task = asyncio.create_task(listen_redis(redis_url))
+
+    watchdog_task = asyncio.create_task(node_watchdog_loop())
 
     yield
 
@@ -87,6 +113,13 @@ async def lifespan(app: FastAPI):
             await listener_task
         except asyncio.CancelledError:
             pass
+
+    watchdog_task.cancel()
+    try:
+        await watchdog_task
+    except asyncio.CancelledError:
+        pass
+
 
 
 # Initialize FastAPI application with lifecycle lifespan handlers

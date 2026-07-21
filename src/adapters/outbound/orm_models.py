@@ -16,7 +16,7 @@ class NodeORM(Base):
     hostname: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
     status: Mapped[NodeStatus] = mapped_column(Enum(NodeStatus, native_enum=False), nullable=False)
     hardware_specs: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
-    last_heartbeat: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    last_heartbeat: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
 class TaskORM(Base):
@@ -28,8 +28,8 @@ class TaskORM(Base):
     status: Mapped[TaskStatus] = mapped_column(Enum(TaskStatus, native_enum=False), nullable=False)
     retries: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     node_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("nodes.id"), nullable=True, index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     idempotency_key: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
 
 
@@ -39,7 +39,8 @@ class TelemetryMetricORM(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     node_id: Mapped[str] = mapped_column(String(36), ForeignKey("nodes.id"), nullable=False, index=True)
-    timestamp: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     cpu_usage: Mapped[float] = mapped_column(Float, nullable=False)
     gpu_usage: Mapped[float] = mapped_column(Float, nullable=False)
     temperature: Mapped[float] = mapped_column(Float, nullable=False)
+

@@ -1,5 +1,6 @@
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.adapters.outbound.orm_models import NodeORM, TaskORM, TelemetryMetricORM
@@ -114,7 +115,15 @@ class SqlAsyncTaskRepository(ITaskRepository):
                 idempotency_key=task.idempotency_key
             )
             self._session.add(db_task)
-        await self._session.flush()
+        try:
+            await self._session.flush()
+        except IntegrityError:
+            await self._session.rollback()
+            existing = await self.find_by_idempotency_key(task.idempotency_key)
+            if existing is not None:
+                return
+            raise
+
 
     async def find_by_id(self, task_id: str) -> Task | None:
         db_task = await self._session.get(TaskORM, task_id)

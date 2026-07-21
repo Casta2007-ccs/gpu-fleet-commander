@@ -48,6 +48,17 @@ class INodeProvisioningUseCase(ABC):
             A list of all Node domain entities.
         """
 
+    @abstractmethod
+    async def check_stale_nodes(self, timeout_seconds: int = 30) -> int:
+        """Audit heartbeats and mark nodes OFFLINE if last_heartbeat exceeds threshold.
+
+        Args:
+            timeout_seconds: Maximum allowed seconds since last heartbeat.
+
+        Returns:
+            Number of nodes marked as OFFLINE.
+        """
+
 
 class ITaskOrchestratorUseCase(ABC):
     """Port defining operations for managing and dispatching tasks to worker nodes.
@@ -315,4 +326,12 @@ class IEventPublisher(ABC):
 
         Args:
             task: The updated Task entity.
+        """
+
+    @abstractmethod
+    async def publish_telemetry_ingested(self, metric: TelemetryMetric) -> None:
+        """Publish an event notifying that hardware telemetry metrics were ingested.
+
+        Args:
+            metric: The TelemetryMetric entity ingested.
         """

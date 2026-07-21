@@ -81,3 +81,7 @@ class FakeEventPublisher(IEventPublisher):
 
     async def publish_task_status_changed(self, task: Task) -> None:
         self.events.append({"type": "task_status_changed", "data": task})
+
+    async def publish_telemetry_ingested(self, metric: TelemetryMetric) -> None:
+        self.events.append({"type": "telemetry_ingested", "data": metric})
+

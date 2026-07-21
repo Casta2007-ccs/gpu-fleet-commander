@@ -2,10 +2,10 @@ import asyncio
 import json
 import logging
 import os
-
-from fastapi import WebSocket
+from typing import Any
 
 import redis.asyncio as aioredis
+from fastapi import WebSocket
 
 logger = logging.getLogger("WebSocketManager")
 
@@ -16,19 +16,22 @@ class ConnectionManager:
     def __init__(self) -> None:
         self.active_connections: list[WebSocket] = []
         self._lock = asyncio.Lock()
-        self.redis_client = None
+        self._redis_client: Any = None
 
+
+    async def _get_redis_client(self):
         redis_url = os.getenv("REDIS_URL")
-        if redis_url and aioredis is not None:
+        if not redis_url or aioredis is None:
+            return None
+        if self._redis_client is None:
             try:
-                self.redis_client = aioredis.from_url(redis_url)
-                logger.info(f"WebSocketManager configured with Redis Pub/Sub at: {redis_url}")
+                self._redis_client = aioredis.from_url(redis_url)
+                logger.info(f"WebSocketManager connected to Redis Pub/Sub at: {redis_url}")
             except Exception as exc:
-                logger.error(f"Failed to initialize Redis connection: {exc}. Falling back to local in-memory mode.")
-        elif redis_url and aioredis is None:
-            logger.warning("REDIS_URL set but redis package is not installed. Falling back to local in-memory mode.")
-        else:
-            logger.info("WebSocketManager initialized in Local In-Memory fallback mode (no REDIS_URL provided).")
+                logger.error(f"Failed to initialize Redis connection: {exc}. Falling back to local mode.")
+                return None
+        return self._redis_client
+
 
     async def connect(self, websocket: WebSocket) -> None:
         # Note: WebSocket acceptance is handled in the router to allow verification checks beforehand
@@ -60,15 +63,19 @@ class ConnectionManager:
 
     async def publish_telemetry(self, message: dict) -> None:
         """Publishes telemetry data. Routes through Redis if enabled, otherwise broadcasts locally."""
-        if self.redis_client:
+        redis_url = os.getenv("REDIS_URL")
+        if redis_url and aioredis is not None:
             try:
-                await self.redis_client.publish("telemetry_channel", json.dumps(message))
+                if self._redis_client is None:
+                    self._redis_client = aioredis.from_url(redis_url)
+                await self._redis_client.publish("telemetry_channel", json.dumps(message))
+                return
             except Exception as exc:
                 logger.error(f"Failed to publish to Redis Pub/Sub: {exc}. Falling back to local in-memory broadcast.")
-                await self.broadcast(message)
-        else:
-            await self.broadcast(message)
+
+        await self.broadcast(message)
 
 
 # Singleton instance of the connection manager
 manager = ConnectionManager()
+

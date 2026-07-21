@@ -71,10 +71,12 @@ async def get_task_service(session: AsyncSession = Depends(get_db_session)) -> T
 async def get_telemetry_service(session: AsyncSession = Depends(get_db_session)) -> TelemetryIngestionService:
     node_repo = SqlAsyncNodeRepository(session)
     telemetry_repo = SqlAsyncTelemetryRepository(session)
-    return TelemetryIngestionService(node_repo, telemetry_repo)
+    event_publisher = LoggingEventPublisher()
+    return TelemetryIngestionService(node_repo, telemetry_repo, event_publisher)
 
 
 # --- Node Endpoints ---
+
 
 @router.post(
     "/nodes",
@@ -217,19 +219,10 @@ async def ingest_telemetry(
 ) -> TelemetryResponse:
     try:
         metric = await service.ingest_metrics(node_id, request.cpu_usage, request.gpu_usage, request.temperature)
+        return TelemetryResponse.model_validate(metric)
     except NodeNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.message) from exc
 
-    # Broadcast telemetry points (via Redis Pub/Sub if active, otherwise local in-memory fallback)
-    await manager.publish_telemetry({
-        "node_id": metric.node_id,
-        "timestamp": metric.timestamp.isoformat(),
-        "cpu_usage": metric.cpu_usage,
-        "gpu_usage": metric.gpu_usage,
-        "temperature": metric.temperature
-    })
-
-    return TelemetryResponse.model_validate(metric)
 
 
 @router.get(

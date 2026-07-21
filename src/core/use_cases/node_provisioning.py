@@ -39,3 +39,21 @@ class NodeProvisioningService(INodeProvisioningUseCase):
     async def list_nodes(self) -> list[Node]:
         return await self._node_repository.list_all()
 
+    async def check_stale_nodes(self, timeout_seconds: int = 30) -> int:
+        nodes = await self._node_repository.list_all()
+        now = datetime.now(UTC)
+        offline_count = 0
+
+        for node in nodes:
+            if node.status == NodeStatus.ONLINE:
+                hb = node.last_heartbeat
+                hb_utc = hb.replace(tzinfo=UTC) if hb.tzinfo is None else hb
+                elapsed = (now - hb_utc).total_seconds()
+
+                if elapsed > timeout_seconds:
+                    updated_node = node.mark_offline()
+                    await self._node_repository.save(updated_node)
+                    offline_count += 1
+
+        return offline_count
+
