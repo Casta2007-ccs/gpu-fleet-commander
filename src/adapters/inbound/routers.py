@@ -263,10 +263,10 @@ async def websocket_endpoint(websocket: WebSocket, api_key: str = Query(..., des
         return
 
     # Connection is now authenticated — register with the manager (already accepted above)
-    manager.active_connections.append(websocket)
+    await manager.connect(websocket)
     try:
         while True:
             # Maintain connection open by listening for client keepalives/control messages
             await websocket.receive_text()
     except WebSocketDisconnect:
-        manager.disconnect(websocket)
+        await manager.disconnect(websocket)

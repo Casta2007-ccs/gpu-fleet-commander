@@ -29,7 +29,7 @@ class NodeProvisioningService(INodeProvisioningUseCase):
         return new_node
 
     async def process_heartbeat(self, node_id: str) -> None:
-        node = await self._node_repository.find_by_id(node_id)
+        node = await self._node_repository.find_by_id_for_update(node_id)
         if node is None:
             raise NodeNotFoundError(node_id)
 

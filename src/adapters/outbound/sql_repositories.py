@@ -44,6 +44,20 @@ class SqlAsyncNodeRepository(INodeRepository):
             last_heartbeat=db_node.last_heartbeat
         )
 
+    async def find_by_id_for_update(self, node_id: str) -> Node | None:
+        stmt = select(NodeORM).where(NodeORM.id == node_id).with_for_update()
+        result = await self._session.execute(stmt)
+        db_node = result.scalar_one_or_none()
+        if db_node is None:
+            return None
+        return Node(
+            id=db_node.id,
+            hostname=db_node.hostname,
+            status=db_node.status,
+            hardware_specs=db_node.hardware_specs,
+            last_heartbeat=db_node.last_heartbeat
+        )
+
     async def find_by_hostname(self, hostname: str) -> Node | None:
         stmt = select(NodeORM).where(NodeORM.hostname == hostname)
         result = await self._session.execute(stmt)
@@ -104,6 +118,23 @@ class SqlAsyncTaskRepository(ITaskRepository):
 
     async def find_by_id(self, task_id: str) -> Task | None:
         db_task = await self._session.get(TaskORM, task_id)
+        if db_task is None:
+            return None
+        return Task(
+            id=db_task.id,
+            payload=db_task.payload,
+            status=db_task.status,
+            idempotency_key=db_task.idempotency_key,
+            retries=db_task.retries,
+            node_id=db_task.node_id,
+            created_at=db_task.created_at,
+            completed_at=db_task.completed_at
+        )
+
+    async def find_by_id_for_update(self, task_id: str) -> Task | None:
+        stmt = select(TaskORM).where(TaskORM.id == task_id).with_for_update()
+        result = await self._session.execute(stmt)
+        db_task = result.scalar_one_or_none()
         if db_task is None:
             return None
         return Task(

@@ -23,34 +23,51 @@ from src.core.domain.exceptions import (
 logger = logging.getLogger("APIEntrypoint")
 
 
+async def _process_redis_messages(pubsub) -> None:
+    async for message in pubsub.listen():
+        if message and message.get("type") == "message":
+            data = json.loads(message["data"])
+            await manager.broadcast(data)
+
+
 async def listen_redis(redis_url: str) -> None:
     """Listens to Redis Pub/Sub and broadcasts messages to active WebSocket connections."""
-    while True:
+    retry_count = 0
+    max_retries = 5
+    backoff = 2.0
+    while retry_count < max_retries:
+        client = None
+        pubsub = None
         try:
             logger.info("Attempting to connect to Redis Pub/Sub subscription...")
             client = aioredis.from_url(redis_url)
             pubsub = client.pubsub()
             await pubsub.subscribe("telemetry_channel")
             logger.info("Subscribed to Redis telemetry_channel. Listening for broadcasts...")
-            async for message in pubsub.listen():
-                if message and message["type"] == "message":
-                    data = json.loads(message["data"])
-                    await manager.broadcast(data)
+            retry_count = 0
+            await _process_redis_messages(pubsub)
         except asyncio.CancelledError:
             logger.info("Redis Pub/Sub background listener cancelled.")
             break
         except Exception as e:
-            logger.error(f"Redis Pub/Sub background listener encountered error: {e}. Reconnecting in 5 seconds...")
-            await asyncio.sleep(5)
+            retry_count += 1
+            logger.error(f"Redis Pub/Sub error (Attempt {retry_count}/{max_retries}): {e}.")
+            if retry_count >= max_retries:
+                logger.critical("Maximum Redis connection retries reached. Halting listener.")
+                break
+            await asyncio.sleep(backoff)
+            backoff = min(backoff * 2, 30.0)
         finally:
-            try:
-                await pubsub.close()
-            except Exception:
-                pass
-            try:
-                await client.aclose()
-            except Exception:
-                pass
+            if pubsub:
+                try:
+                    await pubsub.close()
+                except Exception:
+                    pass
+            if client:
+                try:
+                    await client.aclose()
+                except Exception:
+                    pass
 
 
 @asynccontextmanager

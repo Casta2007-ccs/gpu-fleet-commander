@@ -39,11 +39,11 @@ class TaskOrchestratorService(ITaskOrchestratorUseCase):
         return new_task
 
     async def dispatch_task(self, task_id: str, node_id: str) -> Task:
-        task = await self._task_repository.find_by_id(task_id)
+        task = await self._task_repository.find_by_id_for_update(task_id)
         if task is None:
             raise TaskNotFoundError(task_id)
 
-        node = await self._node_repository.find_by_id(node_id)
+        node = await self._node_repository.find_by_id_for_update(node_id)
         if node is None:
             raise NodeNotFoundError(node_id)
 
@@ -56,7 +56,7 @@ class TaskOrchestratorService(ITaskOrchestratorUseCase):
         return updated_task
 
     async def transition_task(self, task_id: str, status: TaskStatus) -> Task:
-        task = await self._task_repository.find_by_id(task_id)
+        task = await self._task_repository.find_by_id_for_update(task_id)
         if task is None:
             raise TaskNotFoundError(task_id)
 

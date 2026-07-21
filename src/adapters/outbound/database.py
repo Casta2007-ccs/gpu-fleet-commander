@@ -4,11 +4,11 @@ from collections.abc import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
-# Load connection string from environment variable (injected by Flox)
-# Uses asyncpg driver to support high-performance asynchronous operations
+# Load connection string from environment variable
+# Defaults to local async sqlite engine if no DATABASE_URL is explicitly set
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql+asyncpg://postgres:postgres@localhost:5432/gpu_fleet"
+    "sqlite+aiosqlite:///./gpu_fleet.db"
 )
 
 # Initialize asynchronous engine

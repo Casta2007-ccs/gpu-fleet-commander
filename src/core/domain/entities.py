@@ -1,18 +1,18 @@
-from dataclasses import dataclass, field, replace
-from datetime import UTC, datetime
-from enum import Enum
+from dataclasses import dataclass, replace
+from datetime import datetime
+from enum import StrEnum
 from typing import Any
 
 from src.core.domain.exceptions import InvalidTaskStateException
 
 
-class NodeStatus(str, Enum):
+class NodeStatus(StrEnum):
     ONLINE = "ONLINE"
     OFFLINE = "OFFLINE"
     MAINTENANCE = "MAINTENANCE"
 
 
-class TaskStatus(str, Enum):
+class TaskStatus(StrEnum):
     PENDING = "PENDING"
     RUNNING = "RUNNING"
     COMPLETED = "COMPLETED"
@@ -55,9 +55,9 @@ class Task:
     payload: dict[str, Any]
     status: TaskStatus
     idempotency_key: str
+    created_at: datetime
     retries: int = 0
     node_id: str | None = None
-    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     completed_at: datetime | None = None
 
     def __post_init__(self) -> None:

@@ -275,7 +275,7 @@
         // Initialize WebSocket Connection
         function connectWebSocket() {
             const urlParams = new URLSearchParams(window.location.search);
-            const apiKey = urlParams.get('api_key') || 'gpu_fleet_secure_token_2026';
+            const apiKey = urlParams.get('api_key') || '';
             const wsScheme = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
             const ws = new WebSocket(wsScheme + window.location.host + "/v1/ws/telemetry?api_key=" + encodeURIComponent(apiKey));
 

@@ -16,6 +16,9 @@ class FakeNodeRepository(INodeRepository):
     async def find_by_id(self, node_id: str) -> Node | None:
         return self.nodes.get(node_id)
 
+    async def find_by_id_for_update(self, node_id: str) -> Node | None:
+        return self.nodes.get(node_id)
+
     async def find_by_hostname(self, hostname: str) -> Node | None:
         for node in self.nodes.values():
             if node.hostname == hostname:
@@ -36,6 +39,9 @@ class FakeTaskRepository(ITaskRepository):
         self.tasks[task.id] = task
 
     async def find_by_id(self, task_id: str) -> Task | None:
+        return self.tasks.get(task_id)
+
+    async def find_by_id_for_update(self, task_id: str) -> Task | None:
         return self.tasks.get(task_id)
 
     async def find_by_idempotency_key(self, key: str) -> Task | None:

@@ -1,13 +1,11 @@
+import asyncio
 import json
 import logging
 import os
 
 from fastapi import WebSocket
 
-try:
-    import redis.asyncio as aioredis
-except ImportError:
-    aioredis = None
+import redis.asyncio as aioredis
 
 logger = logging.getLogger("WebSocketManager")
 
@@ -17,6 +15,7 @@ class ConnectionManager:
 
     def __init__(self) -> None:
         self.active_connections: list[WebSocket] = []
+        self._lock = asyncio.Lock()
         self.redis_client = None
 
         redis_url = os.getenv("REDIS_URL")
@@ -33,18 +32,23 @@ class ConnectionManager:
 
     async def connect(self, websocket: WebSocket) -> None:
         # Note: WebSocket acceptance is handled in the router to allow verification checks beforehand
-        self.active_connections.append(websocket)
+        async with self._lock:
+            self.active_connections.append(websocket)
 
-    def disconnect(self, websocket: WebSocket) -> None:
-        if websocket in self.active_connections:
-            self.active_connections.remove(websocket)
+    async def disconnect(self, websocket: WebSocket) -> None:
+        async with self._lock:
+            if websocket in self.active_connections:
+                self.active_connections.remove(websocket)
 
     async def broadcast(self, message: dict) -> None:
         """Broadcast telemetry data payload directly to all connected websocket clients."""
         serialized_msg = json.dumps(message)
         disconnected = []
-        # Create a shallow copy to prevent concurrent modification exceptions
-        for connection in list(self.active_connections):
+
+        async with self._lock:
+            active_snapshot = list(self.active_connections)
+
+        for connection in active_snapshot:
             try:
                 await connection.send_text(serialized_msg)
             except Exception:
@@ -52,7 +56,7 @@ class ConnectionManager:
 
         # Cleanup inactive connections
         for conn in disconnected:
-            self.disconnect(conn)
+            await self.disconnect(conn)
 
     async def publish_telemetry(self, message: dict) -> None:
         """Publishes telemetry data. Routes through Redis if enabled, otherwise broadcasts locally."""

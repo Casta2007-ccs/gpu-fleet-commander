@@ -185,6 +185,17 @@ class INodeRepository(ABC):
         """
 
     @abstractmethod
+    async def find_by_id_for_update(self, node_id: str) -> Node | None:
+        """Retrieve a node by ID with pessimistic row lock to prevent race conditions during updates.
+
+        Args:
+            node_id: The identifier to look up.
+
+        Returns:
+            The Node entity if found, otherwise None.
+        """
+
+    @abstractmethod
     async def find_by_hostname(self, hostname: str) -> Node | None:
         """Retrieve a node by its hostname.
 
@@ -221,6 +232,17 @@ class ITaskRepository(ABC):
     @abstractmethod
     async def find_by_id(self, task_id: str) -> Task | None:
         """Retrieve a task by its unique identifier.
+
+        Args:
+            task_id: The identifier to look up.
+
+        Returns:
+            The Task entity if found, otherwise None.
+        """
+
+    @abstractmethod
+    async def find_by_id_for_update(self, task_id: str) -> Task | None:
+        """Retrieve a task by ID with pessimistic row lock to prevent concurrent state transition collisions.
 
         Args:
             task_id: The identifier to look up.

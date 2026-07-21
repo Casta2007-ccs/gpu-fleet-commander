@@ -30,16 +30,15 @@ GPU_MODELS = [
 ]
 
 
-async def register_node(client: httpx.AsyncClient, hostname: str, hardware_specs: dict) -> str:
-    """Register the worker node with the control plane API.
-
-    Performs indefinite retries with exponential backoff if the API is offline.
-    """
+async def register_node(client: httpx.AsyncClient, hostname: str, hardware_specs: dict, max_retries: int = 10) -> str:
+    """Register the worker node with the control plane API with bounded retries."""
     backoff = 2.0
     base_hostname = hostname
-    while True:
+    attempts = 0
+    while attempts < max_retries:
+        attempts += 1
         try:
-            logger.info(f"Attempting to register node '{hostname}' with specs: {hardware_specs}...")
+            logger.info(f"Attempting to register node '{hostname}' (Attempt {attempts}/{max_retries})...")
             response = await client.post(
                 f"{API_URL}/v1/nodes",
                 json={
@@ -56,14 +55,19 @@ async def register_node(client: httpx.AsyncClient, hostname: str, hardware_specs
             logger.warning(f"Failed to reach API server: {exc}. Retrying in {backoff}s...")
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code == 409:
-                # Handle name collision recovery by appending a random suffix
                 logger.error("Hostname collision. Generating new suffix and retrying...")
                 hostname = f"{base_hostname}-retry-{random.randint(100, 999)}"
             else:
                 logger.error(f"HTTP error during registration: {exc.response.text}. Retrying...")
 
+        if attempts >= max_retries:
+            logger.critical(f"Failed to register node after {max_retries} attempts. Aborting worker startup.")
+            raise RuntimeError(f"Could not register worker node '{hostname}' with control plane.")
+
         await asyncio.sleep(backoff)
-        backoff = min(backoff * 2, 60.0)
+        backoff = min(backoff * 2, 30.0)
+
+    raise RuntimeError(f"Could not register worker node '{hostname}' after maximum attempts.")
 
 
 async def send_heartbeat(client: httpx.AsyncClient, node_id: str) -> bool:
