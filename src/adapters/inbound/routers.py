@@ -1,7 +1,7 @@
 import logging
 import os
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, WebSocket, WebSocketDisconnect, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.adapters.inbound.api_schemas import (
@@ -14,6 +14,7 @@ from src.adapters.inbound.api_schemas import (
     TelemetryResponse,
     TransitionRequest,
 )
+from src.adapters.inbound.metrics_exporter import generate_prometheus_metrics
 from src.adapters.inbound.websocket_manager import manager
 from src.adapters.outbound.database import get_db_session
 from src.adapters.outbound.event_publisher import LoggingEventPublisher
@@ -241,6 +242,21 @@ async def get_node_telemetry(
         return [TelemetryResponse.model_validate(metric) for metric in metrics]
     except NodeNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.message) from exc
+
+
+# --- Prometheus Metrics Endpoint ---
+
+@router.get(
+    "/metrics",
+    summary="Export fleet & system metrics for Prometheus",
+    dependencies=[Depends(verify_api_key)]
+)
+async def get_prometheus_metrics(
+    session: AsyncSession = Depends(get_db_session)
+) -> Response:
+    metrics_text = await generate_prometheus_metrics(session)
+    return Response(content=metrics_text, media_type="text/plain; version=0.0.4; charset=utf-8")
+
 
 
 # --- WebSocket Endpoint ---

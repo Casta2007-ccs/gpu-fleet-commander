@@ -490,6 +490,45 @@
         }
       }
     },
+    "/v1/metrics": {
+      "get": {
+        "summary": "Export fleet & system metrics for Prometheus",
+        "operationId": "get_prometheus_metrics_v1_metrics_get",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access API Key for control plane authentication",
+              "title": "X-Api-Key"
+            },
+            "description": "Access API Key for control plane authentication"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "summary": "API Health Check",

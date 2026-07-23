@@ -79,14 +79,14 @@ The repository is structured to enforce the dependency rule: dependencies point 
 - [x] Define the **Flox environment** (`manifest.toml`) pinning the language runtime and build tools.
 - [x] Implement Domain Entities and Use Cases in the `src/core/` directory.
 - [x] Achieve 100% unit test coverage in the core using in-memory mock repositories.
-- [ ] Design the `openapi.yaml` contract for the REST API.
+- [x] Design the `openapi.json` contract for the REST API.
 
 ### Phase 2: Infrastructure & Database Integration (Weeks 3-4)
 *Goal: Plug the adapters into the core.*
-- [ ] Spin up PostgreSQL locally via Flox services.
+- [x] Spin up PostgreSQL locally via Docker Compose / Flox services.
 - [x] Implement the SQL Outbound Adapters (Repositories) using the chosen database driver/ORM.
 - [x] Implement the REST API Inbound Adapters implementing the OpenAPI contract.
-- [ ] Write integration tests for database adapters using Testcontainers or Flox temporary databases.
+- [x] Write integration tests for database adapters using SQLite async engine.
 - [x] Wire up Dependency Injection in the entry point.
 
 ### Phase 3: Cross-Platform UI & Telemetry Dashboard (Weeks 5-6)
@@ -94,4 +94,5 @@ The repository is structured to enforce the dependency rule: dependencies point 
 - [x] Create a lightweight cross-platform dashboard (e.g., React/TypeScript or a native desktop app).
 - [x] Implement real-time telemetry streaming (Server-Sent Events or WebSockets) via the API adapter.
 - [x] Add a simulated CLI worker (`cmd/worker`) that registers itself, receives tasks, and reports fake hardware metrics to showcase the end-to-end flow.
-- [ ] Finalize documentation, architecture diagrams, and deployment instructions.
+- [x] Finalize documentation, architecture diagrams, and deployment instructions.
+

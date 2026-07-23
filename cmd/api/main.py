@@ -97,6 +97,14 @@ async def node_watchdog_loop(interval_seconds: float = 10.0, timeout_seconds: in
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manages application startup and shutdown events, launching background listeners and watchdog services."""
+    from src.adapters.outbound.database import Base, engine
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("Database schema auto-initialized successfully.")
+    except Exception as exc:
+        logger.error(f"Database schema initialization notice: {exc}")
+
     redis_url = os.getenv("REDIS_URL")
     listener_task = None
 
@@ -104,6 +112,7 @@ async def lifespan(app: FastAPI):
         listener_task = asyncio.create_task(listen_redis(redis_url))
 
     watchdog_task = asyncio.create_task(node_watchdog_loop())
+
 
     yield
 

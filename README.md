@@ -251,6 +251,8 @@ All endpoints require `X-API-Key` authentication unless otherwise noted. Full in
 |:---:|:---|:---|:---|
 | `GET` | `/` | Fleet control dashboard | `200` |
 | `GET` | `/health` | Liveness probe | `200` |
+| `GET` | `/v1/metrics` | Prometheus metrics exporter | `200` `401` |
+
 
 ### Nodes
 
@@ -520,12 +522,13 @@ Building a production-grade control plane required navigating several non-trivia
 
 ## 🗺️ Roadmap
 
-- [ ] **Prometheus Metrics Exporter** — `/metrics` endpoint for Grafana integration
+- [x] **Prometheus Metrics Exporter** — `/v1/metrics` endpoint for Grafana integration
 - [ ] **gRPC Transport Adapter** — Alternative inbound adapter for high-throughput node communication
-- [ ] **Node Health Watchdog** — Automatic `OFFLINE` status transition after heartbeat timeout
+- [x] **Node Health Watchdog** — Automatic `OFFLINE` status transition after heartbeat timeout
 - [ ] **Role-Based Access Control** — JWT-based authentication with scoped permissions
 - [ ] **Horizontal Autoscaling** — Kubernetes-native deployment with HPA based on telemetry load
 - [ ] **OpenTelemetry Tracing** — Distributed request tracing across API and worker nodes
+
 
 ---
 
